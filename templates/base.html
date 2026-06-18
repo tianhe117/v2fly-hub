@@ -130,9 +130,9 @@
     <div class="log-panel">
         <div class="log-header" onclick="toggleLog()">
             <span class="log-title">LOG</span>
-            <span class="log-toggle" id="logToggle">&#9650; show</span>
+            <span class="log-toggle" id="logToggle">&#9660; hide</span>
         </div>
-        <div class="log-body" id="logBody">
+        <div class="log-body show" id="logBody" tabindex="0">
             <div class="log-line log-info"><span class="log-time">{{ boot_time }}</span><span class="log-msg">[system] webui started</span></div>
             {% block log_init %}{% endblock %}
         </div>
@@ -195,6 +195,18 @@
         }
 
         function pad(n) { return n < 10 ? '0' + n : n; }
+
+        // 日志区域 Ctrl+A 全选
+        document.getElementById('logBody').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'a') {
+                e.preventDefault();
+                var range = document.createRange();
+                range.selectNodeContents(this);
+                var selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        });
 
         // 每 2 秒轮询一次日志
         setInterval(fetchLogs, 2000);
