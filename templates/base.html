@@ -90,6 +90,7 @@
         .log-body.show { display: block; }
         .log-line { white-space: pre; }
         .log-line .log-time { color: #999; margin-right: 8px; }
+        .log-line .log-module { color: #1976d2; margin-right: 8px; }
         .log-line.log-info .log-msg { color: #333; }
         .log-line.log-ok .log-msg { color: #4caf50; }
         .log-line.log-warn .log-msg { color: #ffa726; }
@@ -144,12 +145,15 @@
     {% block modals %}{% endblock %}
 
     <script>
+        var logIndex = 0;
+
         function toggleLog() {
             var body = document.getElementById('logBody');
             var toggle = document.getElementById('logToggle');
             if (body.classList.contains('show')) { body.classList.remove('show'); toggle.innerHTML = '&#9650; show'; }
             else { body.classList.add('show'); toggle.innerHTML = '&#9660; hide'; }
         }
+
         function addLog(type, msg) {
             var body = document.getElementById('logBody');
             var now = new Date();
@@ -160,7 +164,41 @@
             body.appendChild(div);
             body.scrollTop = body.scrollHeight;
         }
+
+        // 从服务器获取日志
+        function fetchLogs() {
+            fetch('/api/logs?since=' + logIndex)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.logs && data.logs.length > 0) {
+                        var body = document.getElementById('logBody');
+                        data.logs.forEach(function(log) {
+                            var div = document.createElement('div');
+                            div.className = 'log-line log-' + log.level;
+                            div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                                          '<span class="log-module">[' + log.module + ']</span>' +
+                                          '<span class="log-msg">' + escapeHtml(log.message) + '</span>';
+                            body.appendChild(div);
+                        });
+                        body.scrollTop = body.scrollHeight;
+                        logIndex = data.total;
+                    }
+                })
+                .catch(err => {});
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function pad(n) { return n < 10 ? '0' + n : n; }
+
+        // 每 2 秒轮询一次日志
+        setInterval(fetchLogs, 2000);
+        fetchLogs();
         {% block extra_js %}{% endblock %}
     </script>
 </body>

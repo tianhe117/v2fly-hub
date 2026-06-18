@@ -6,6 +6,7 @@ from . import v2fly_manager
 from . import upgrade
 from . import subscription
 from . import checker
+from .logger import web_logger
 import json
 import hashlib
 import os
@@ -461,6 +462,20 @@ def api_check_nodes():
         return jsonify({'success': False, 'message': 'no nodes to check'})
 
     return jsonify({'success': True, 'results': results})
+
+
+# ========== 日志 API ==========
+
+@app.route('/api/logs', methods=['GET'])
+@auth_required
+def api_get_logs():
+    """获取日志"""
+    since = request.args.get('since', 0, type=int)
+    logs = web_logger.get_logs(since)
+    return jsonify({
+        'logs': logs,
+        'total': web_logger.get_count()
+    })
 
 
 if __name__ == '__main__':
