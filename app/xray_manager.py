@@ -4,23 +4,23 @@ import time
 import signal
 
 # PID 文件路径：相对于项目根目录的 data/ 目录
-PID_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'v2fly.pid')
+PID_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'xray.pid')
 
 
 def get_bin_path():
-    """获取 v2fly 可执行文件路径"""
+    """获取 xray 可执行文件路径"""
     from .db import get_setting
-    return get_setting('v2fly_bin_path')
+    return get_setting('xray_bin_path')
 
 
 def get_config_dir():
     """获取配置目录路径"""
     from .db import get_setting
-    return get_setting('v2fly_config_dir')
+    return get_setting('xray_config_dir')
 
 
 def get_version():
-    """获取 v2fly 版本"""
+    """获取 xray 版本"""
     bin_path = get_bin_path()
     if not os.path.exists(bin_path):
         return None
@@ -31,7 +31,7 @@ def get_version():
             text=True,
             timeout=5
         )
-        # 解析第一行，格式如 "V2Ray 5.16.1 (V2Fly, v5.16.1)"
+        # 解析第一行，格式如 "Xray 1.8.0 (Xray, Penumbra) ..."
         for line in result.stdout.split('\n'):
             if line.strip():
                 return line.strip()
@@ -41,7 +41,7 @@ def get_version():
 
 
 def get_pid():
-    """获取运行中的 v2fly PID"""
+    """获取运行中的 xray PID"""
     if not os.path.exists(PID_FILE):
         return None
     try:
@@ -60,7 +60,7 @@ def get_pid():
 
 
 def is_running():
-    """检查 v2fly 是否正在运行"""
+    """检查 xray 是否正在运行"""
     return get_pid() is not None
 
 
@@ -90,9 +90,9 @@ def get_uptime():
 
 
 def start():
-    """启动 v2fly 进程"""
+    """启动 xray 进程"""
     if is_running():
-        return {'success': False, 'message': 'v2fly is already running'}
+        return {'success': False, 'message': 'Xray is already running'}
 
     bin_path = get_bin_path()
     config_dir = get_config_dir()
@@ -121,7 +121,7 @@ def start():
         # 等待一下确认进程启动
         time.sleep(0.5)
         if process.poll() is not None:
-            return {'success': False, 'message': 'v2fly failed to start'}
+            return {'success': False, 'message': 'Xray failed to start'}
 
         return {'success': True, 'pid': process.pid}
     except Exception as e:
@@ -129,10 +129,10 @@ def start():
 
 
 def stop():
-    """停止 v2fly 进程"""
+    """停止 xray 进程"""
     pid = get_pid()
     if pid is None:
-        return {'success': True, 'message': 'v2fly is not running'}
+        return {'success': True, 'message': 'Xray is not running'}
 
     try:
         os.kill(pid, signal.SIGTERM)
@@ -169,7 +169,7 @@ def stop():
 
 
 def restart():
-    """重启 v2fly 进程"""
+    """重启 xray 进程"""
     stop_result = stop()
     if not stop_result['success']:
         return stop_result
@@ -178,7 +178,7 @@ def restart():
 
 
 def get_status():
-    """获取 v2fly 完整状态"""
+    """获取 xray 完整状态"""
     pid = get_pid()
     version = get_version()
     platform_info = get_platform()
@@ -207,14 +207,13 @@ def get_status():
 
 
 def get_platform():
-    """获取平台信息，返回 (platform_key, supported, message)"""
+    """获取平台信息"""
     import platform
     system = platform.system().lower()
     release = platform.release()
     machine = platform.machine().lower()
 
     if system == 'windows':
-        # 检查 Windows 10+ (版本号 >= 10)
         try:
             version = int(release.split('.')[0])
             if version < 10:

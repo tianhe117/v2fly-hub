@@ -30,7 +30,7 @@
 
 {% block content %}
 <div class="section">
-    <div class="section-title">v2fly binary</div>
+    <div class="section-title">Xray binary</div>
     <div class="section-body">
         <div id="platformWarning" style="display:none;" class="msg-error"></div>
         <div class="upgrade-row">
@@ -56,9 +56,9 @@
         <div id="backupInfo" style="display:none;" class="backup-info"></div>
         <div class="field" style="margin-top:12px;">
             <label>executable path</label>
-            <input class="input" id="v2fly_bin_path" name="v2fly_bin_path">
+            <input class="input" id="xray_bin_path" name="xray_bin_path">
         </div>
-        <div class="field"><label>config dir</label><input class="input" id="v2fly_config_dir" name="v2fly_config_dir"></div>
+        <div class="field"><label>config dir</label><input class="input" id="xray_config_dir" name="xray_config_dir"></div>
     </div>
 </div>
 
@@ -98,7 +98,7 @@
     <div class="section-title">system info</div>
     <div class="section-body">
         <table class="info-table">
-            <tr><td>v2fly version</td><td id="sys_version">-</td></tr>
+            <tr><td>Xray version</td><td id="sys_version">-</td></tr>
             <tr><td>status</td><td id="sys_status">-</td></tr>
             <tr><td>pid</td><td id="sys_pid">-</td></tr>
             <tr><td>uptime</td><td id="sys_uptime">-</td></tr>
@@ -176,8 +176,8 @@ function loadSettings() {
         .then(r => r.json())
         .then(data => {
             originalSettings = data;
-            document.getElementById('v2fly_bin_path').value = data.v2fly_bin_path || '';
-            document.getElementById('v2fly_config_dir').value = data.v2fly_config_dir || '';
+            document.getElementById('xray_bin_path').value = data.xray_bin_path || '';
+            document.getElementById('xray_config_dir').value = data.xray_config_dir || '';
             document.getElementById('check_interval_normal').value = data.check_interval_normal || '240';
             document.getElementById('check_interval_failover').value = data.check_interval_failover || '30';
             document.getElementById('tcp_timeout').value = data.tcp_timeout || '3';
@@ -198,15 +198,15 @@ function loadSystemInfo() {
     fetch('/api/system/info')
         .then(r => r.json())
         .then(data => {
-            document.getElementById('sys_version').textContent = data.v2fly_version || '-';
-            document.getElementById('sys_status').textContent = data.v2fly_status || '-';
-            document.getElementById('sys_pid').textContent = data.v2fly_pid || '-';
-            document.getElementById('sys_uptime').textContent = data.v2fly_uptime ? data.v2fly_uptime + 's' : '-';
+            document.getElementById('sys_version').textContent = data.xray_version || '-';
+            document.getElementById('sys_status').textContent = data.xray_status || '-';
+            document.getElementById('sys_pid').textContent = data.xray_pid || '-';
+            document.getElementById('sys_uptime').textContent = data.xray_uptime ? data.xray_uptime + 's' : '-';
             document.getElementById('sys_db_size').textContent = data.db_size_human || '-';
             document.getElementById('sys_platform').textContent = data.platform || '-';
 
-            document.getElementById('currentVer').textContent = data.v2fly_version || '-';
-            document.getElementById('currentMeta').textContent = data.platform + ' · status: ' + data.v2fly_status;
+            document.getElementById('currentVer').textContent = data.xray_version || '-';
+            document.getElementById('currentMeta').textContent = data.platform + ' · status: ' + data.xray_status;
 
             platformSupported = data.platform_supported;
             var warning = document.getElementById('platformWarning');
@@ -220,7 +220,7 @@ function loadSystemInfo() {
             }
 
             var statusDot = document.querySelector('.status-dot');
-            if (data.v2fly_status === 'running') {
+            if (data.xray_status === 'running') {
                 statusDot.className = 'status-dot ok';
             } else {
                 statusDot.className = 'status-dot error';
@@ -240,8 +240,8 @@ function prepareSave() {
     }
 
     var newSettings = {
-        v2fly_bin_path: document.getElementById('v2fly_bin_path').value,
-        v2fly_config_dir: document.getElementById('v2fly_config_dir').value,
+        xray_bin_path: document.getElementById('xray_bin_path').value,
+        xray_config_dir: document.getElementById('xray_config_dir').value,
         check_interval_normal: document.getElementById('check_interval_normal').value,
         check_interval_failover: document.getElementById('check_interval_failover').value,
         tcp_timeout: document.getElementById('tcp_timeout').value,
@@ -255,8 +255,8 @@ function prepareSave() {
     // 检测变更
     var changes = [];
     var fields = {
-        v2fly_bin_path: 'executable path',
-        v2fly_config_dir: 'config dir',
+        xray_bin_path: 'executable path',
+        xray_config_dir: 'config dir',
         check_interval_normal: 'normal interval',
         check_interval_failover: 'failover interval',
         tcp_timeout: 'tcp timeout',
@@ -311,8 +311,8 @@ function confirmSave() {
     var passwordConfirm = document.getElementById('web_password_confirm').value;
 
     var data = {
-        v2fly_bin_path: document.getElementById('v2fly_bin_path').value,
-        v2fly_config_dir: document.getElementById('v2fly_config_dir').value,
+        xray_bin_path: document.getElementById('xray_bin_path').value,
+        xray_config_dir: document.getElementById('xray_config_dir').value,
         check_interval_normal: document.getElementById('check_interval_normal').value,
         check_interval_failover: document.getElementById('check_interval_failover').value,
         tcp_timeout: document.getElementById('tcp_timeout').value,

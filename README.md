@@ -14,13 +14,13 @@ Open http://localhost:8080
 ## Directory Structure
 
 ```
-v2ray-webui/
+Xray-webui/
 ├── run.py                  # Entry point
 ├── app/                    # Python application package
 │   ├── __init__.py
 │   ├── main.py             # Flask application (page routes & API)
 │   ├── db.py               # Database operations (SQLite)
-│   ├── v2fly_manager.py    # v2fly process management
+│   ├── xray_manager.py    # Xray process management
 │   └── upgrade.py          # Binary upgrade from GitHub
 ├── templates/              # Jinja2 HTML templates
 │   ├── base.html           # Shared layout (navbar, sidebar, log panel)
