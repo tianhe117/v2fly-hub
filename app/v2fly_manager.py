@@ -181,6 +181,7 @@ def get_status():
     """获取 v2fly 完整状态"""
     pid = get_pid()
     version = get_version()
+    platform_info = get_platform()
 
     if pid is not None:
         uptime = get_uptime()
@@ -189,7 +190,9 @@ def get_status():
             'status': 'running',
             'pid': pid,
             'uptime': uptime,
-            'platform': get_platform()
+            'platform': platform_info['key'],
+            'platform_supported': platform_info['supported'],
+            'platform_message': platform_info['message']
         }
     else:
         return {
@@ -197,24 +200,50 @@ def get_status():
             'status': 'stopped',
             'pid': None,
             'uptime': None,
-            'platform': get_platform()
+            'platform': platform_info['key'],
+            'platform_supported': platform_info['supported'],
+            'platform_message': platform_info['message']
         }
 
 
 def get_platform():
-    """获取平台信息"""
+    """获取平台信息，返回 (platform_key, supported, message)"""
     import platform
     system = platform.system().lower()
+    release = platform.release()
     machine = platform.machine().lower()
 
     if system == 'windows':
+        # 检查 Windows 10+ (版本号 >= 10)
+        try:
+            version = int(release.split('.')[0])
+            if version < 10:
+                return {
+                    'key': f'windows-{machine}',
+                    'supported': False,
+                    'message': f'Windows {release} is not supported. Requires Windows 10 or later.'
+                }
+        except (ValueError, IndexError):
+            pass
+
         if '64' in machine or 'amd64' in machine:
-            return 'windows-x86_64'
-        return 'windows-x86'
+            return {'key': 'windows-64', 'supported': True, 'message': 'OK'}
+        return {
+            'key': f'windows-{machine}',
+            'supported': False,
+            'message': 'Only x86_64 architecture is supported on Windows.'
+        }
     elif system == 'linux':
         if '64' in machine or 'amd64' in machine:
-            return 'linux-x86_64'
-        return 'linux-x86'
-    elif system == 'darwin':
-        return 'macos'
-    return f'{system}-{machine}'
+            return {'key': 'linux-64', 'supported': True, 'message': 'OK'}
+        return {
+            'key': f'linux-{machine}',
+            'supported': False,
+            'message': 'Only amd64 architecture is supported on Linux.'
+        }
+    else:
+        return {
+            'key': f'{system}-{machine}',
+            'supported': False,
+            'message': f'{system} is not supported. Only Windows 10+ and Linux amd64 are supported.'
+        }

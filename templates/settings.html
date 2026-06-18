@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}settings - V2Fly Manager{% endblock %}
+{% block title %}settings - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
 <button class="btn btn-primary btn-sm" onclick="saveSettings()">save</button>
@@ -17,12 +17,17 @@
 .upgrade-info .meta { font-size: 11px; color: #888; }
 .progress-bar { height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden; margin-top: 4px; display: none; }
 .progress-bar .fill { height: 100%; background: #4caf50; width: 0%; }
+.msg-ok { color: #4caf50; font-size: 11px; margin-top: 4px; }
+.msg-error { color: #e53935; font-size: 11px; margin-top: 4px; }
+.msg-warn { color: #ffa726; font-size: 11px; margin-top: 4px; }
+.backup-info { font-size: 11px; color: #888; padding: 8px 0; border-top: 1px solid #f0f0f0; margin-top: 8px; }
 {% endblock %}
 
 {% block content %}
 <div class="section">
     <div class="section-title">v2fly binary</div>
     <div class="section-body">
+        <div id="platformWarning" style="display:none;" class="msg-error"></div>
         <div class="upgrade-row">
             <div class="upgrade-info">
                 <div>current: <span class="ver" id="currentVer">-</span></div>
@@ -31,22 +36,19 @@
             <div>
                 <button class="btn btn-sm" id="checkUpdateBtn" onclick="checkUpdate()">check update</button>
                 <button class="btn btn-sm btn-ok" id="downloadBtn" style="display:none;" onclick="downloadBinary()">download latest</button>
+                <button class="btn btn-sm" id="restoreBtn" style="display:none;" onclick="restoreBackup()">restore backup</button>
             </div>
         </div>
         <div id="updateInfo" style="display:none;">
             <div style="font-size:12px;padding:8px 0;border-top:1px solid #f0f0f0;">
                 latest: <span class="ver" id="latestVer">-</span>
                 <span style="color:#888;margin-left:8px;" id="latestDate">-</span>
-                <div style="margin-top:4px;">
-                    <select id="osSelect" class="input" style="width:auto;height:24px;font-size:11px;">
-                        <option value="windows-64">windows-x86_64</option>
-                        <option value="linux-64">linux-x86_64</option>
-                    </select>
-                </div>
             </div>
         </div>
+        <div id="latestMsg" style="display:none;" class="msg-ok">✓ already the latest version</div>
         <div class="progress-bar" id="downloadProgress"><div class="fill" id="downloadFill"></div></div>
         <div id="downloadStatus" style="font-size:11px;color:#888;margin-top:4px;"></div>
+        <div id="backupInfo" style="display:none;" class="backup-info"></div>
         <div class="field" style="margin-top:12px;">
             <label>executable path</label>
             <input class="input" id="v2fly_bin_path" name="v2fly_bin_path">
@@ -75,10 +77,15 @@
     <div class="section-title">web ui</div>
     <div class="section-body">
         <div class="field-row">
-            <div class="field"><label>listen address</label><input class="input" id="web_listen" name="web_listen"></div>
-            <div class="field"><label>port</label><input class="input" type="number" id="web_port" name="web_port"></div>
+            <div class="field">
+                <div class="field"><label>port</label><input class="input" type="number" id="web_port" name="web_port"></div>
+                <div class="field"><label>username</label><input class="input" id="web_username" name="web_username"></div>
+            </div>
+            <div class="field">
+                <div class="field"><label>password (empty = no auth)</label><input class="input" type="password" id="web_password" name="web_password" placeholder="leave empty to disable auth"></div>
+                <div class="field"><label>confirm password</label><input class="input" type="password" id="web_password_confirm" name="web_password_confirm" placeholder="repeat password to change"></div>
+            </div>
         </div>
-        <div class="field"><label>password (empty = no auth)</label><input class="input" type="password" id="web_password" name="web_password" placeholder="leave empty for no auth"></div>
     </div>
 </div>
 
@@ -111,6 +118,8 @@
 {% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
 
 {% block extra_js %}
+var platformSupported = true;
+
 // 加载设置
 function loadSettings() {
     fetch('/api/settings')
@@ -124,9 +133,12 @@ function loadSettings() {
             document.getElementById('curl_timeout').value = data.curl_timeout || '10';
             document.getElementById('test_url').value = data.test_url || '';
             document.getElementById('auto_failover').checked = data.auto_failover === 'true';
-            document.getElementById('web_listen').value = data.web_listen || '0.0.0.0';
             document.getElementById('web_port').value = data.web_port || '8080';
-            document.getElementById('web_password').value = data.web_password || '';
+            document.getElementById('web_username').value = data.web_username || 'admin';
+            // 有密码时两个密码框都显示 ******
+            var hasPassword = data.web_password && data.web_password !== '';
+            document.getElementById('web_password').value = hasPassword ? '******' : '';
+            document.getElementById('web_password_confirm').value = hasPassword ? '******' : '';
         })
         .catch(err => addLog('error', '[settings] load failed: ' + err));
 }
@@ -146,6 +158,18 @@ function loadSystemInfo() {
             document.getElementById('currentVer').textContent = data.v2fly_version || '-';
             document.getElementById('currentMeta').textContent = data.platform + ' · status: ' + data.v2fly_status;
 
+            // 检查平台支持
+            platformSupported = data.platform_supported;
+            var warning = document.getElementById('platformWarning');
+            if (!platformSupported) {
+                warning.textContent = '⚠ ' + data.platform_message;
+                warning.style.display = '';
+                document.getElementById('checkUpdateBtn').disabled = true;
+            } else {
+                warning.style.display = 'none';
+                document.getElementById('checkUpdateBtn').disabled = false;
+            }
+
             // 更新状态指示器
             var statusDot = document.querySelector('.status-dot');
             if (data.v2fly_status === 'running') {
@@ -159,6 +183,15 @@ function loadSystemInfo() {
 
 // 保存设置
 function saveSettings() {
+    var password = document.getElementById('web_password').value;
+    var passwordConfirm = document.getElementById('web_password_confirm').value;
+
+    // 前端验证：如果要修改密码，两次输入必须一致
+    if (password && password !== '***' && password !== passwordConfirm) {
+        addLog('error', '[settings] passwords do not match');
+        return;
+    }
+
     var data = {
         v2fly_bin_path: document.getElementById('v2fly_bin_path').value,
         v2fly_config_dir: document.getElementById('v2fly_config_dir').value,
@@ -168,9 +201,10 @@ function saveSettings() {
         curl_timeout: document.getElementById('curl_timeout').value,
         test_url: document.getElementById('test_url').value,
         auto_failover: document.getElementById('auto_failover').checked ? 'true' : 'false',
-        web_listen: document.getElementById('web_listen').value,
         web_port: document.getElementById('web_port').value,
-        web_password: document.getElementById('web_password').value
+        web_username: document.getElementById('web_username').value,
+        web_password: password,
+        web_password_confirm: passwordConfirm
     };
 
     fetch('/api/settings', {
@@ -191,10 +225,22 @@ function saveSettings() {
 
 // 检查更新
 function checkUpdate() {
+    if (!platformSupported) {
+        addLog('error', '[upgrade] platform not supported');
+        return;
+    }
+
     var btn = document.getElementById('checkUpdateBtn');
     btn.disabled = true;
     btn.textContent = 'checking...';
     addLog('info', '[upgrade] checking latest release from github...');
+
+    // 重置状态
+    document.getElementById('updateInfo').style.display = 'none';
+    document.getElementById('downloadBtn').style.display = 'none';
+    document.getElementById('latestMsg').style.display = 'none';
+    document.getElementById('restoreBtn').style.display = 'none';
+    document.getElementById('backupInfo').style.display = 'none';
 
     fetch('/api/upgrade/check')
         .then(r => r.json())
@@ -203,12 +249,32 @@ function checkUpdate() {
             btn.textContent = 'check update';
 
             if (data.success) {
-                document.getElementById('updateInfo').style.display = '';
-                document.getElementById('downloadBtn').style.display = '';
-                document.getElementById('latestVer').textContent = data.tag_name;
-                document.getElementById('latestDate').textContent = data.published_at;
-                addLog('ok', '[upgrade] latest version: ' + data.tag_name + ' (' + data.published_at + ')');
+                // 显示备份信息
+                if (data.has_backup && data.backup_info) {
+                    var backupInfo = document.getElementById('backupInfo');
+                    backupInfo.innerHTML = 'backup found: v' + data.backup_info.version + ' (' + data.backup_info.created_at + ')';
+                    backupInfo.style.display = '';
+                    document.getElementById('restoreBtn').style.display = '';
+                }
+
+                if (data.is_latest) {
+                    // 已是最新版
+                    document.getElementById('latestMsg').style.display = '';
+                    addLog('ok', '[upgrade] already the latest version: ' + data.current_version);
+                } else {
+                    // 有新版本
+                    document.getElementById('updateInfo').style.display = '';
+                    document.getElementById('downloadBtn').style.display = '';
+                    document.getElementById('latestVer').textContent = data.tag_name;
+                    document.getElementById('latestDate').textContent = data.published_at;
+                    addLog('ok', '[upgrade] latest version: ' + data.tag_name + ' (' + data.published_at + ')');
+                }
             } else {
+                if (data.error_type === 'platform_not_supported') {
+                    document.getElementById('platformWarning').textContent = '⚠ ' + data.message;
+                    document.getElementById('platformWarning').style.display = '';
+                    platformSupported = false;
+                }
                 addLog('error', '[upgrade] check failed: ' + data.message);
             }
         })
@@ -225,16 +291,15 @@ function downloadBinary() {
     var bar = document.getElementById('downloadProgress');
     var fill = document.getElementById('downloadFill');
     var status = document.getElementById('downloadStatus');
-    var platform = document.getElementById('osSelect').value;
 
     btn.disabled = true;
     btn.textContent = 'downloading...';
     bar.style.display = '';
     fill.style.width = '0%';
-    status.textContent = 'downloading v2ray-' + platform + '.zip ...';
-    addLog('info', '[upgrade] downloading v2ray-core for ' + platform + '...');
+    status.textContent = 'backing up current version, then downloading...';
+    addLog('info', '[upgrade] starting upgrade...');
 
-    var evtSource = new EventSource('/api/upgrade/download?platform=' + platform);
+    var evtSource = new EventSource('/api/upgrade/download');
     evtSource.onmessage = function(event) {
         var data = JSON.parse(event.data);
         if (data.type === 'progress') {
@@ -244,7 +309,7 @@ function downloadBinary() {
             evtSource.close();
             fill.style.width = '100%';
             status.textContent = 'installed, restarting...';
-            addLog('ok', '[upgrade] download complete');
+            addLog('ok', '[upgrade] download complete, backup saved');
 
             setTimeout(function() {
                 btn.style.display = 'none';
@@ -259,8 +324,15 @@ function downloadBinary() {
             btn.disabled = false;
             btn.textContent = 'download latest';
             bar.style.display = 'none';
-            status.textContent = '';
-            addLog('error', '[upgrade] download failed: ' + data.message);
+
+            if (data.message === 'already_latest') {
+                status.textContent = '';
+                document.getElementById('latestMsg').style.display = '';
+                addLog('ok', '[upgrade] already the latest version');
+            } else {
+                status.textContent = '';
+                addLog('error', '[upgrade] failed: ' + data.message);
+            }
         }
     };
 
@@ -272,6 +344,37 @@ function downloadBinary() {
         status.textContent = '';
         addLog('error', '[upgrade] connection lost');
     };
+}
+
+// 恢复备份
+function restoreBackup() {
+    if (!confirm('Restore backup version? Current version will be backed up first.')) return;
+
+    var btn = document.getElementById('restoreBtn');
+    btn.disabled = true;
+    btn.textContent = 'restoring...';
+    addLog('info', '[upgrade] restoring backup...');
+
+    fetch('/api/upgrade/restore', {method: 'POST'})
+        .then(r => r.json())
+        .then(result => {
+            btn.disabled = false;
+            btn.textContent = 'restore backup';
+
+            if (result.success) {
+                addLog('ok', '[upgrade] restored to v' + result.restored_version);
+                document.getElementById('restoreBtn').style.display = 'none';
+                document.getElementById('backupInfo').style.display = 'none';
+                loadSystemInfo();
+            } else {
+                addLog('error', '[upgrade] restore failed: ' + result.message);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = 'restore backup';
+            addLog('error', '[upgrade] restore failed: ' + err);
+        });
 }
 
 // 危险操作

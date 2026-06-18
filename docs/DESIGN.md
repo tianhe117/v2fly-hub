@@ -1,4 +1,4 @@
-# V2Fly Web Manager
+# V2fly-hub
 
 ## Context
 
@@ -7,13 +7,13 @@
 - VMess+WS (24811) → socks 出站（经订阅节点翻墙）
 - SS (704) → freedom 出站（国外回国反向代理）
 
-目标：用 Python Web 工具替代 OpenWrt，管理 v2fly 进程，实现订阅解析、节点选择、可用性检测和自动故障转移。
+目标：用 Python Web 工具替代 OpenWrt，管理 V2fly 进程，实现订阅解析、节点选择、可用性检测和自动故障转移。
 
 ## 技术栈
 
 - Python 3 + Flask + SQLite
 - 前端：纯 HTML/CSS/JS，等宽字体，无外部依赖
-- v2fly-core（已放在 bin/ 目录）
+- V2fly-core（已放在 bin/ 目录）
 
 ## 项目结构
 
@@ -24,7 +24,7 @@ v2ray-webui/
 │   ├── __init__.py
 │   ├── main.py             # Flask 应用（页面路由 + API）
 │   ├── db.py               # 数据库操作（SQLite）
-│   ├── v2fly_manager.py    # v2fly 进程管理
+│   ├── v2fly_manager.py    # V2fly 进程管理
 │   └── upgrade.py          # GitHub 二进制升级
 ├── templates/              # Jinja2 HTML 模板
 │   ├── base.html           # 共享布局（导航栏、侧边栏、日志面板）
@@ -33,9 +33,9 @@ v2ray-webui/
 │   ├── outbounds.html      # 出站设置
 │   ├── subscriptions.html  # 订阅管理
 │   ├── nodes.html          # 节点列表
-│   └── settings.html       # 设置 + v2fly 升级
-├── bin/                    # v2fly 二进制 + 数据文件（gitignore）
-├── config/                 # v2fly 运行时配置（gitignore）
+│   └── settings.html       # 设置 + V2fly 升级
+├── bin/                    # V2fly 二进制 + 数据文件（gitignore）
+├── config/                 # V2fly 运行时配置（gitignore）
 ├── data/                   # SQLite 数据库（gitignore）
 ├── docs/
 │   └── DESIGN.md           # 设计文档
@@ -70,7 +70,7 @@ v2ray-webui/
 
 ### 1. 仪表盘 (`dashboard.html`)
 
-- 顶部状态栏：v2fly 运行状态、活跃服务数、当前节点、当前延迟
+- 顶部状态栏：V2fly 运行状态、活跃服务数、当前节点、当前延迟
 - 服务列表：每个服务卡片显示 `入站 → 出站` 流向图
 - 操作：添加服务、启停/重启/删除单个服务
 - 添加服务弹窗：选择已有入站/出站，或新建
@@ -114,14 +114,14 @@ v2ray-webui/
 
 ### 6. 设置 (`settings.html`)
 
-- **v2fly 升级/下载**：
+- **V2fly 升级/下载**：
   - 显示当前版本、平台（自动检测 linux-x86_64 / windows-x86_64）
   - check update 按钮：从 GitHub releases API 获取最新版本
   - download latest 按钮：选择平台后下载对应 zip，解压到 bin/ 目录
   - 下载源：`https://github.com/v2fly/v2ray-core/releases`
-  - 下载后自动重启 v2fly 进程
+  - 下载后自动重启 V2fly 进程
   - 显示下载进度条
-- v2fly 可执行文件路径、配置目录
+- V2fly 可执行文件路径、配置目录
 - 节点检测参数：正常间隔（可达时 3-5min）、故障间隔（不可达时 30s）、tcp 超时、curl 超时、测试 URL、自动故障转移开关
 - Web UI 参数：监听地址、端口、密码
 - 系统信息：版本、PID、运行时长、数据库大小、平台
@@ -133,7 +133,7 @@ v2ray-webui/
 - 点击 LOG 标题栏展开/收起（默认收起）
 - 日志格式：`HH:MM:SS [module] message`
 - 日志级别：info（黑）、ok（绿）、warn（橙）、error（红）
-- 模块标识：system、v2fly、check、failover、upgrade、subscription 等
+- 模块标识：system、V2fly、check、failover、upgrade、subscription 等
 - 所有操作（启停服务、切换节点、检测结果、故障转移、升级下载）都写入日志
 - 自动滚动到最新日志
 
@@ -179,7 +179,7 @@ settings:
 2. **当前节点不可达时**：
    - 从 priority 最小（最高优先级）的节点开始遍历
    - 找到第一个可达节点，切换并使用
-   - 更新 v2fly 配置，重启出站
+   - 更新 V2fly 配置，重启出站
 
 ### 自适应检测间隔
 
@@ -241,10 +241,10 @@ POST /api/nodes/check            # 手动检测（body: {node_ids: [...]} 或 {a
 POST /api/outbound-nodes/reorder # 更新节点优先级
 
 # v2fly
-GET  /api/v2fly/status           # v2fly 状态
-POST /api/v2fly/start            # 启动 v2fly
-POST /api/v2fly/stop             # 停止 v2fly
-POST /api/v2fly/restart          # 重启 v2fly
+GET  /api/v2fly/status           # V2fly 状态
+POST /api/v2fly/start            # 启动 V2fly
+POST /api/v2fly/stop             # 停止 V2fly
+POST /api/v2fly/restart          # 重启 V2fly
 
 # 设置
 GET  /api/settings               # 获取设置
@@ -253,10 +253,10 @@ POST /api/settings               # 更新设置
 # 升级
 GET  /api/upgrade/check          # 检查最新版本（返回 tag_name, published_at, assets）
 GET  /api/upgrade/download       # 下载指定平台二进制（query: platform=linux-64|windows-64）
-                                 # 流式返回进度，下载后解压到 bin/，重启 v2fly
+                                 # 流式返回进度，下载后解压到 bin/，重启 V2fly
 ```
 
-## v2fly 配置模板
+## V2fly 配置模板
 
 ```json
 {
@@ -282,14 +282,14 @@ GET  /api/upgrade/download       # 下载指定平台二进制（query: platform
 3. **服务管理**：服务 = 入站 + 出站组合，启停控制
 4. **订阅解析**：vmess/ss 链接解析，关键字筛选/排除
 5. **节点管理**：节点池、优先级排序、手动切换
-6. **v2fly 管理**：配置生成（Jinja2）、进程管理（subprocess）
+6. **V2fly 管理**：配置生成（Jinja2）、进程管理（subprocess）
 7. **节点检测**：TCP + curl 双重检测、手动触发、串行/并行
 8. **自动故障转移**：自适应间隔、优先级优选、指数退避
 
 ## 验证方式
 
 1. 添加订阅 → 节点正确解析，关键字筛选/排除生效
-2. 创建入站+出站+服务 → v2fly 配置正确生成
+2. 创建入站+出站+服务 → V2fly 配置正确生成
 3. 客户端通过 SS/VMess 连接 → 代理可用
 4. 手动 check 节点 → tcp/curl 延迟正确显示
 5. 断开当前节点 → 自动切换到下一优先级可用节点

@@ -1,6 +1,6 @@
-# v2fly-manager
+# V2fly-hub
 
-Web-based management tool for v2fly-core. Manages subscriptions, node selection, availability checking, and auto-failover.
+Web-based management tool for V2fly-core. Manages subscriptions, node selection, availability checking, and auto-failover.
 
 ## Quick Start
 
@@ -29,9 +29,9 @@ v2ray-webui/
 │   ├── outbounds.html      # Outbound settings
 │   ├── subscriptions.html  # Subscription management
 │   ├── nodes.html          # Node list
-│   └── settings.html       # Settings + v2fly upgrade
-├── bin/                    # v2fly binary + data files (gitignored)
-├── config/                 # v2fly runtime config (gitignored)
+│   └── settings.html       # Settings + V2fly upgrade
+├── bin/                    # V2fly binary + data files (gitignored)
+├── config/                 # V2fly runtime config (gitignored)
 ├── data/                   # SQLite database (gitignored)
 ├── docs/
 │   └── DESIGN.md           # Design document

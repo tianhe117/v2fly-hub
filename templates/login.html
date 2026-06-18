@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>login - {{ app_name }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; height: 100vh; display: flex; align-items: center; justify-content: center; background: #fafafa; color: #333; }
+        .login-box { width: 300px; padding: 30px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; }
+        .login-box h2 { font-size: 14px; font-weight: 600; margin-bottom: 20px; color: #333; }
+        .login-box input { width: 100%; padding: 8px 10px; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 3px; font-size: 13px; font-family: inherit; margin-bottom: 12px; color: #333; }
+        .login-box input:focus { outline: none; border-color: #999; }
+        .login-box button { width: 100%; padding: 8px; background: #333; color: #fff; border: none; border-radius: 3px; font-size: 13px; font-family: inherit; cursor: pointer; }
+        .login-box button:hover { background: #555; }
+        .error { color: #c62828; font-size: 12px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>{{ app_name }}</h2>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <form method="POST">
+            <input type="text" name="username" placeholder="username" autofocus>
+            <input type="password" name="password" placeholder="password">
+            <button type="submit">login</button>
+        </form>
+    </div>
+</body>
+</html>

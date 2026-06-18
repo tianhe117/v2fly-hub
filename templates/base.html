@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}V2Fly Manager{% endblock %}</title>
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; background: #fafafa; height: 100vh; display: flex; flex-direction: column; font-size: 13px; color: #333; }
@@ -103,7 +103,7 @@
 </head>
 <body>
     <div class="navbar">
-        <span class="navbar-title">v2fly-manager</span>
+        <span class="navbar-title">{{ app_name }}</span>
         <div class="navbar-actions">
             {% block navbar_actions %}{% endblock %}
         </div>

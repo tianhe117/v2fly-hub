@@ -1,43 +1,124 @@
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, session, redirect, url_for
 from datetime import datetime
+from functools import wraps
 from . import db
 from . import v2fly_manager
 from . import upgrade
 import json
+import hashlib
+import os
 
 app = Flask(__name__, template_folder='../templates')
+app.secret_key = os.urandom(24)
 
+APP_NAME = 'V2Fly-hub'
 boot_time = datetime.now().strftime('%H:%M:%S')
+
+
+@app.context_processor
+def inject_app_name():
+    return dict(app_name=APP_NAME)
+
+
+def auth_required(f):
+    """认证装饰器"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # 检查是否设置了密码
+        password = db.get_setting('web_password')
+        if not password:
+            # 没有密码，直接放行
+            return f(*args, **kwargs)
+
+        # 检查 session 中是否已登录
+        if session.get('authenticated'):
+            return f(*args, **kwargs)
+
+        # API 请求返回 401
+        if request.path.startswith('/api/'):
+            return jsonify({'success': False, 'message': 'unauthorized'}), 401
+
+        # 页面请求重定向到登录页
+        return redirect('/login')
+
+    return decorated
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """登录页面"""
+    # 检查是否设置了密码
+    password = db.get_setting('web_password')
+    if not password:
+        # 没有密码，直接跳转首页
+        return redirect('/')
+
+    # 已登录直接跳转 dashboard
+    if session.get('authenticated'):
+        return redirect('/dashboard')
+
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password_input = request.form.get('password', '')
+        expected_username = db.get_setting('web_username')
+        expected_password = db.get_setting('web_password')
+
+        if username == expected_username and password_input == expected_password:
+            session['authenticated'] = True
+            return redirect('/dashboard')
+        else:
+            return render_template('login.html', error='invalid username or password')
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    """登出"""
+    session.pop('authenticated', None)
+    return redirect('/login')
 
 
 # ========== 页面路由 ==========
 
 @app.route('/')
+@auth_required
+def index():
+    return redirect('/dashboard')
+
+
+@app.route('/dashboard')
+@auth_required
 def dashboard():
     return render_template('dashboard.html', page='dashboard', boot_time=boot_time)
 
 
 @app.route('/inbounds')
+@auth_required
 def inbounds():
     return render_template('inbounds.html', page='inbounds', boot_time=boot_time)
 
 
 @app.route('/outbounds')
+@auth_required
 def outbounds():
     return render_template('outbounds.html', page='outbounds', boot_time=boot_time)
 
 
 @app.route('/subscriptions')
+@auth_required
 def subscriptions():
     return render_template('subscriptions.html', page='subscriptions', boot_time=boot_time)
 
 
 @app.route('/nodes')
+@auth_required
 def nodes():
     return render_template('nodes.html', page='nodes', boot_time=boot_time)
 
 
 @app.route('/settings')
+@auth_required
 def settings():
     return render_template('settings.html', page='settings', boot_time=boot_time)
 
@@ -45,37 +126,61 @@ def settings():
 # ========== 设置 API ==========
 
 @app.route('/api/settings', methods=['GET'])
+@auth_required
 def api_get_settings():
     """获取所有设置"""
-    return jsonify(db.get_all_settings())
+    settings = db.get_all_settings()
+    # 密码用 *** 代替
+    if settings.get('web_password'):
+        settings['web_password'] = '***'
+    return jsonify(settings)
 
 
 @app.route('/api/settings', methods=['POST'])
+@auth_required
 def api_update_settings():
     """更新设置"""
     data = request.get_json()
     if not data:
         return jsonify({'success': False, 'message': 'no data'}), 400
+
+    # 处理密码
+    password = data.get('web_password')
+    password_confirm = data.pop('web_password_confirm', None)
+
+    if password == '***':
+        # 密码未修改，不更新
+        data.pop('web_password', None)
+    elif password:
+        # 有新密码，检查确认密码
+        if password != password_confirm:
+            return jsonify({'success': False, 'message': 'passwords do not match'}), 400
+    # password 为空表示清空密码，允许
+
     db.update_settings(data)
     return jsonify({'success': True})
 
 
 @app.route('/api/settings/reset', methods=['POST'])
+@auth_required
 def api_reset_settings():
     """重置所有设置"""
     db.reset_settings()
+    session.pop('authenticated', None)
     return jsonify({'success': True})
 
 
 # ========== v2fly 管理 API ==========
 
 @app.route('/api/v2fly/status', methods=['GET'])
+@auth_required
 def api_v2fly_status():
     """获取 v2fly 状态"""
     return jsonify(v2fly_manager.get_status())
 
 
 @app.route('/api/v2fly/start', methods=['POST'])
+@auth_required
 def api_v2fly_start():
     """启动 v2fly"""
     result = v2fly_manager.start()
@@ -83,6 +188,7 @@ def api_v2fly_start():
 
 
 @app.route('/api/v2fly/stop', methods=['POST'])
+@auth_required
 def api_v2fly_stop():
     """停止 v2fly"""
     result = v2fly_manager.stop()
@@ -90,6 +196,7 @@ def api_v2fly_stop():
 
 
 @app.route('/api/v2fly/restart', methods=['POST'])
+@auth_required
 def api_v2fly_restart():
     """重启 v2fly"""
     result = v2fly_manager.restart()
@@ -99,6 +206,7 @@ def api_v2fly_restart():
 # ========== 升级 API ==========
 
 @app.route('/api/upgrade/check', methods=['GET'])
+@auth_required
 def api_upgrade_check():
     """检查更新"""
     result = upgrade.check_update()
@@ -106,30 +214,44 @@ def api_upgrade_check():
 
 
 @app.route('/api/upgrade/download', methods=['GET'])
+@auth_required
 def api_upgrade_download():
     """下载更新（SSE 流式响应）"""
-    platform = request.args.get('platform', 'windows-64')
 
     def generate():
         def progress(downloaded, total):
             pct = int(downloaded * 100 / total) if total > 0 else 0
             yield f"data: {json.dumps({'type': 'progress', 'pct': pct})}\n\n"
 
-        result = upgrade.download_binary(platform, lambda d, t: None)
+        result = upgrade.download_binary(lambda d, t: None)
 
         if result['success']:
             # 重启 v2fly
             restart_result = v2fly_manager.restart()
             yield f"data: {json.dumps({'type': 'complete', 'version': result['version'], 'restart': restart_result})}\n\n"
         else:
-            yield f"data: {json.dumps({'type': 'error', 'message': result['message']})}\n\n"
+            error_type = result.get('error_type', 'unknown')
+            yield f"data: {json.dumps({'type': 'error', 'message': result['message'], 'error_type': error_type})}\n\n"
 
     return Response(generate(), mimetype='text/event-stream')
+
+
+@app.route('/api/upgrade/restore', methods=['POST'])
+@auth_required
+def api_upgrade_restore():
+    """恢复备份版本"""
+    result = upgrade.restore_backup()
+    if result['success']:
+        # 重启 v2fly
+        restart_result = v2fly_manager.restart()
+        result['restart'] = restart_result
+    return jsonify(result)
 
 
 # ========== 危险操作 API ==========
 
 @app.route('/api/nodes/clear', methods=['POST'])
+@auth_required
 def api_clear_nodes():
     """清空节点"""
     db.clear_nodes()
@@ -137,15 +259,18 @@ def api_clear_nodes():
 
 
 @app.route('/api/database/clear', methods=['POST'])
+@auth_required
 def api_clear_database():
     """清空数据库"""
     db.clear_database()
+    session.pop('authenticated', None)
     return jsonify({'success': True})
 
 
 # ========== 系统信息 API ==========
 
 @app.route('/api/system/info', methods=['GET'])
+@auth_required
 def api_system_info():
     """获取系统信息"""
     import os
@@ -160,6 +285,8 @@ def api_system_info():
         'v2fly_pid': status['pid'],
         'v2fly_uptime': status['uptime'],
         'platform': status['platform'],
+        'platform_supported': status['platform_supported'],
+        'platform_message': status['platform_message'],
         'db_size': db_size,
         'db_size_human': format_size(db_size)
     })
