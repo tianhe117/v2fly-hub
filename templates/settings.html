@@ -2,7 +2,7 @@
 {% block title %}settings - V2Fly Manager{% endblock %}
 
 {% block navbar_actions %}
-<button class="btn btn-primary btn-sm">save</button>
+<button class="btn btn-primary btn-sm" onclick="saveSettings()">save</button>
 {% endblock %}
 
 {% block extra_css %}
@@ -25,8 +25,8 @@
     <div class="section-body">
         <div class="upgrade-row">
             <div class="upgrade-info">
-                <div>current: <span class="ver" id="currentVer">v5.16.1</span></div>
-                <div class="meta">linux-x86_64 &middot; installed 2024-01-10</div>
+                <div>current: <span class="ver" id="currentVer">-</span></div>
+                <div class="meta" id="currentMeta">-</div>
             </div>
             <div>
                 <button class="btn btn-sm" id="checkUpdateBtn" onclick="checkUpdate()">check update</button>
@@ -35,12 +35,12 @@
         </div>
         <div id="updateInfo" style="display:none;">
             <div style="font-size:12px;padding:8px 0;border-top:1px solid #f0f0f0;">
-                latest: <span class="ver" id="latestVer">v5.17.0</span>
-                <span style="color:#888;margin-left:8px;" id="latestDate">2024-01-15</span>
+                latest: <span class="ver" id="latestVer">-</span>
+                <span style="color:#888;margin-left:8px;" id="latestDate">-</span>
                 <div style="margin-top:4px;">
                     <select id="osSelect" class="input" style="width:auto;height:24px;font-size:11px;">
-                        <option value="linux-64">linux-x86_64</option>
                         <option value="windows-64">windows-x86_64</option>
+                        <option value="linux-64">linux-x86_64</option>
                     </select>
                 </div>
             </div>
@@ -49,9 +49,9 @@
         <div id="downloadStatus" style="font-size:11px;color:#888;margin-top:4px;"></div>
         <div class="field" style="margin-top:12px;">
             <label>executable path</label>
-            <input class="input" value="./bin/v2fly">
+            <input class="input" id="v2fly_bin_path" name="v2fly_bin_path">
         </div>
-        <div class="field"><label>config dir</label><input class="input" value="./config"></div>
+        <div class="field"><label>config dir</label><input class="input" id="v2fly_config_dir" name="v2fly_config_dir"></div>
     </div>
 </div>
 
@@ -59,15 +59,15 @@
     <div class="section-title">node check</div>
     <div class="section-body">
         <div class="field-row">
-            <div class="field"><label>normal interval (sec)</label><input class="input" type="number" value="240"></div>
-            <div class="field"><label>failover interval (sec)</label><input class="input" type="number" value="30"></div>
+            <div class="field"><label>normal interval (sec)</label><input class="input" type="number" id="check_interval_normal" name="check_interval_normal"></div>
+            <div class="field"><label>failover interval (sec)</label><input class="input" type="number" id="check_interval_failover" name="check_interval_failover"></div>
         </div>
         <div class="field-row">
-            <div class="field"><label>tcp timeout (sec)</label><input class="input" type="number" value="3"></div>
-            <div class="field"><label>curl timeout (sec)</label><input class="input" type="number" value="10"></div>
+            <div class="field"><label>tcp timeout (sec)</label><input class="input" type="number" id="tcp_timeout" name="tcp_timeout"></div>
+            <div class="field"><label>curl timeout (sec)</label><input class="input" type="number" id="curl_timeout" name="curl_timeout"></div>
         </div>
-        <div class="field"><label>test url</label><input class="input" value="http://www.gstatic.com/generate_204"></div>
-        <div class="field"><label><input type="checkbox" checked> enable auto-failover</label></div>
+        <div class="field"><label>test url</label><input class="input" id="test_url" name="test_url"></div>
+        <div class="field"><label><input type="checkbox" id="auto_failover" name="auto_failover"> enable auto-failover</label></div>
     </div>
 </div>
 
@@ -75,10 +75,10 @@
     <div class="section-title">web ui</div>
     <div class="section-body">
         <div class="field-row">
-            <div class="field"><label>listen address</label><input class="input" value="0.0.0.0"></div>
-            <div class="field"><label>port</label><input class="input" type="number" value="8080"></div>
+            <div class="field"><label>listen address</label><input class="input" id="web_listen" name="web_listen"></div>
+            <div class="field"><label>port</label><input class="input" type="number" id="web_port" name="web_port"></div>
         </div>
-        <div class="field"><label>password (empty = no auth)</label><input class="input" type="password" placeholder="leave empty for no auth"></div>
+        <div class="field"><label>password (empty = no auth)</label><input class="input" type="password" id="web_password" name="web_password" placeholder="leave empty for no auth"></div>
     </div>
 </div>
 
@@ -86,14 +86,12 @@
     <div class="section-title">system info</div>
     <div class="section-body">
         <table class="info-table">
-            <tr><td>v2fly version</td><td>v5.16.1</td></tr>
-            <tr><td>status</td><td>running</td></tr>
-            <tr><td>pid</td><td>12345</td></tr>
-            <tr><td>uptime</td><td>3d 12h</td></tr>
-            <tr><td>db size</td><td>1.2 MB</td></tr>
-            <tr><td>subscriptions</td><td>2</td></tr>
-            <tr><td>total nodes</td><td>12</td></tr>
-            <tr><td>platform</td><td>linux-x86_64</td></tr>
+            <tr><td>v2fly version</td><td id="sys_version">-</td></tr>
+            <tr><td>status</td><td id="sys_status">-</td></tr>
+            <tr><td>pid</td><td id="sys_pid">-</td></tr>
+            <tr><td>uptime</td><td id="sys_uptime">-</td></tr>
+            <tr><td>db size</td><td id="sys_db_size">-</td></tr>
+            <tr><td>platform</td><td id="sys_platform">-</td></tr>
         </table>
     </div>
 </div>
@@ -102,9 +100,9 @@
     <div class="section-title">danger zone</div>
     <div class="section-body">
         <div style="display:flex;gap:8px;">
-            <button class="btn btn-danger btn-sm">clear all nodes</button>
-            <button class="btn btn-danger btn-sm">reset all settings</button>
-            <button class="btn btn-danger btn-sm">clear database</button>
+            <button class="btn btn-danger btn-sm" onclick="clearNodes()">clear all nodes</button>
+            <button class="btn btn-danger btn-sm" onclick="resetSettings()">reset all settings</button>
+            <button class="btn btn-danger btn-sm" onclick="clearDatabase()">clear database</button>
         </div>
     </div>
 </div>
@@ -113,53 +111,207 @@
 {% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
 
 {% block extra_js %}
-function checkUpdate() {
-    var btn = document.getElementById('checkUpdateBtn');
-    btn.disabled = true; btn.textContent = 'checking...';
-    addLog('info', '[upgrade] checking latest release from github...');
-    setTimeout(function() {
-        btn.disabled = false; btn.textContent = 'check update';
-        document.getElementById('updateInfo').style.display = '';
-        document.getElementById('downloadBtn').style.display = '';
-        addLog('ok', '[upgrade] latest version: v5.17.0 (2024-01-15)');
-    }, 1500);
+// 加载设置
+function loadSettings() {
+    fetch('/api/settings')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('v2fly_bin_path').value = data.v2fly_bin_path || '';
+            document.getElementById('v2fly_config_dir').value = data.v2fly_config_dir || '';
+            document.getElementById('check_interval_normal').value = data.check_interval_normal || '240';
+            document.getElementById('check_interval_failover').value = data.check_interval_failover || '30';
+            document.getElementById('tcp_timeout').value = data.tcp_timeout || '3';
+            document.getElementById('curl_timeout').value = data.curl_timeout || '10';
+            document.getElementById('test_url').value = data.test_url || '';
+            document.getElementById('auto_failover').checked = data.auto_failover === 'true';
+            document.getElementById('web_listen').value = data.web_listen || '0.0.0.0';
+            document.getElementById('web_port').value = data.web_port || '8080';
+            document.getElementById('web_password').value = data.web_password || '';
+        })
+        .catch(err => addLog('error', '[settings] load failed: ' + err));
 }
 
+// 加载系统信息
+function loadSystemInfo() {
+    fetch('/api/system/info')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('sys_version').textContent = data.v2fly_version || '-';
+            document.getElementById('sys_status').textContent = data.v2fly_status || '-';
+            document.getElementById('sys_pid').textContent = data.v2fly_pid || '-';
+            document.getElementById('sys_uptime').textContent = data.v2fly_uptime ? data.v2fly_uptime + 's' : '-';
+            document.getElementById('sys_db_size').textContent = data.db_size_human || '-';
+            document.getElementById('sys_platform').textContent = data.platform || '-';
+
+            document.getElementById('currentVer').textContent = data.v2fly_version || '-';
+            document.getElementById('currentMeta').textContent = data.platform + ' · status: ' + data.v2fly_status;
+
+            // 更新状态指示器
+            var statusDot = document.querySelector('.status-dot');
+            if (data.v2fly_status === 'running') {
+                statusDot.className = 'status-dot ok';
+            } else {
+                statusDot.className = 'status-dot error';
+            }
+        })
+        .catch(err => addLog('error', '[system] info load failed: ' + err));
+}
+
+// 保存设置
+function saveSettings() {
+    var data = {
+        v2fly_bin_path: document.getElementById('v2fly_bin_path').value,
+        v2fly_config_dir: document.getElementById('v2fly_config_dir').value,
+        check_interval_normal: document.getElementById('check_interval_normal').value,
+        check_interval_failover: document.getElementById('check_interval_failover').value,
+        tcp_timeout: document.getElementById('tcp_timeout').value,
+        curl_timeout: document.getElementById('curl_timeout').value,
+        test_url: document.getElementById('test_url').value,
+        auto_failover: document.getElementById('auto_failover').checked ? 'true' : 'false',
+        web_listen: document.getElementById('web_listen').value,
+        web_port: document.getElementById('web_port').value,
+        web_password: document.getElementById('web_password').value
+    };
+
+    fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            addLog('ok', '[settings] saved');
+        } else {
+            addLog('error', '[settings] save failed: ' + result.message);
+        }
+    })
+    .catch(err => addLog('error', '[settings] save failed: ' + err));
+}
+
+// 检查更新
+function checkUpdate() {
+    var btn = document.getElementById('checkUpdateBtn');
+    btn.disabled = true;
+    btn.textContent = 'checking...';
+    addLog('info', '[upgrade] checking latest release from github...');
+
+    fetch('/api/upgrade/check')
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.textContent = 'check update';
+
+            if (data.success) {
+                document.getElementById('updateInfo').style.display = '';
+                document.getElementById('downloadBtn').style.display = '';
+                document.getElementById('latestVer').textContent = data.tag_name;
+                document.getElementById('latestDate').textContent = data.published_at;
+                addLog('ok', '[upgrade] latest version: ' + data.tag_name + ' (' + data.published_at + ')');
+            } else {
+                addLog('error', '[upgrade] check failed: ' + data.message);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = 'check update';
+            addLog('error', '[upgrade] check failed: ' + err);
+        });
+}
+
+// 下载二进制
 function downloadBinary() {
     var btn = document.getElementById('downloadBtn');
     var bar = document.getElementById('downloadProgress');
     var fill = document.getElementById('downloadFill');
     var status = document.getElementById('downloadStatus');
-    var os = document.getElementById('osSelect').value;
-    btn.disabled = true; btn.textContent = 'downloading...';
-    bar.style.display = ''; fill.style.width = '0%';
-    status.textContent = 'downloading v2ray-' + os + '.zip ...';
-    addLog('info', '[upgrade] downloading v2ray-core v5.17.0 for ' + os + '...');
+    var platform = document.getElementById('osSelect').value;
 
-    var pct = 0;
-    var timer = setInterval(function() {
-        pct += Math.floor(Math.random() * 15) + 5;
-        if (pct >= 100) {
-            pct = 100; clearInterval(timer);
+    btn.disabled = true;
+    btn.textContent = 'downloading...';
+    bar.style.display = '';
+    fill.style.width = '0%';
+    status.textContent = 'downloading v2ray-' + platform + '.zip ...';
+    addLog('info', '[upgrade] downloading v2ray-core for ' + platform + '...');
+
+    var evtSource = new EventSource('/api/upgrade/download?platform=' + platform);
+    evtSource.onmessage = function(event) {
+        var data = JSON.parse(event.data);
+        if (data.type === 'progress') {
+            fill.style.width = data.pct + '%';
+            status.textContent = 'downloading... ' + data.pct + '%';
+        } else if (data.type === 'complete') {
+            evtSource.close();
             fill.style.width = '100%';
-            status.textContent = 'download complete, extracting...';
+            status.textContent = 'installed, restarting...';
             addLog('ok', '[upgrade] download complete');
+
             setTimeout(function() {
-                status.textContent = 'installed to ./bin/v2fly, restarting...';
-                addLog('ok', '[upgrade] extracted to ./bin/v2fly');
-                addLog('info', '[v2fly] restarting process...');
-                setTimeout(function() {
-                    document.getElementById('currentVer').textContent = 'v5.17.0';
-                    btn.style.display = 'none';
-                    document.getElementById('updateInfo').style.display = 'none';
-                    bar.style.display = 'none';
-                    status.textContent = 'upgraded to v5.17.0';
-                    addLog('ok', '[v2fly] started, pid 12345');
-                    addLog('ok', '[upgrade] done');
-                }, 1000);
-            }, 500);
+                btn.style.display = 'none';
+                document.getElementById('updateInfo').style.display = 'none';
+                bar.style.display = 'none';
+                status.textContent = 'upgraded to ' + data.version;
+                addLog('ok', '[upgrade] done');
+                loadSystemInfo();
+            }, 1500);
+        } else if (data.type === 'error') {
+            evtSource.close();
+            btn.disabled = false;
+            btn.textContent = 'download latest';
+            bar.style.display = 'none';
+            status.textContent = '';
+            addLog('error', '[upgrade] download failed: ' + data.message);
         }
-        fill.style.width = pct + '%';
-    }, 200);
+    };
+
+    evtSource.onerror = function() {
+        evtSource.close();
+        btn.disabled = false;
+        btn.textContent = 'download latest';
+        bar.style.display = 'none';
+        status.textContent = '';
+        addLog('error', '[upgrade] connection lost');
+    };
 }
+
+// 危险操作
+function clearNodes() {
+    if (!confirm('Clear all nodes? This cannot be undone.')) return;
+    fetch('/api/nodes/clear', {method: 'POST'})
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                addLog('ok', '[nodes] all nodes cleared');
+            }
+        });
+}
+
+function resetSettings() {
+    if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+    fetch('/api/settings/reset', {method: 'POST'})
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                addLog('ok', '[settings] reset to defaults');
+                loadSettings();
+            }
+        });
+}
+
+function clearDatabase() {
+    if (!confirm('Clear entire database? This will delete all subscriptions, nodes, and settings. This cannot be undone.')) return;
+    fetch('/api/database/clear', {method: 'POST'})
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                addLog('ok', '[database] cleared');
+                loadSettings();
+                loadSystemInfo();
+            }
+        });
+}
+
+// 页面加载时初始化
+loadSettings();
+loadSystemInfo();
 {% endblock %}

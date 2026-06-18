@@ -6,7 +6,7 @@ Web-based management tool for v2fly-core. Manages subscriptions, node selection,
 
 ```bash
 pip install -r requirements.txt
-python app.py
+python run.py
 ```
 
 Open http://localhost:8080
@@ -15,12 +15,14 @@ Open http://localhost:8080
 
 ```
 v2ray-webui/
-├── app.py                  # Flask application (page routes)
-├── models.py               # Database models (TODO)
-├── subscription.py         # Subscription parsing (TODO)
-├── node_checker.py         # Node availability checker (TODO)
-├── v2fly_manager.py        # v2fly process management (TODO)
-├── templates/
+├── run.py                  # Entry point
+├── app/                    # Python application package
+│   ├── __init__.py
+│   ├── main.py             # Flask application (page routes & API)
+│   ├── db.py               # Database operations (SQLite)
+│   ├── v2fly_manager.py    # v2fly process management
+│   └── upgrade.py          # Binary upgrade from GitHub
+├── templates/              # Jinja2 HTML templates
 │   ├── base.html           # Shared layout (navbar, sidebar, log panel)
 │   ├── dashboard.html      # Dashboard
 │   ├── inbounds.html       # Inbound settings
@@ -33,7 +35,8 @@ v2ray-webui/
 ├── data/                   # SQLite database (gitignored)
 ├── docs/
 │   └── DESIGN.md           # Design document
-└── requirements.txt
+├── requirements.txt
+└── .gitignore
 ```
 
 ## Concept: Service = Inbound + Outbound

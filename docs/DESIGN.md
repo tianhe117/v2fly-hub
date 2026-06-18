@@ -15,6 +15,34 @@
 - 前端：纯 HTML/CSS/JS，等宽字体，无外部依赖
 - v2fly-core（已放在 bin/ 目录）
 
+## 项目结构
+
+```
+v2ray-webui/
+├── run.py                  # 入口文件
+├── app/                    # Python 应用包
+│   ├── __init__.py
+│   ├── main.py             # Flask 应用（页面路由 + API）
+│   ├── db.py               # 数据库操作（SQLite）
+│   ├── v2fly_manager.py    # v2fly 进程管理
+│   └── upgrade.py          # GitHub 二进制升级
+├── templates/              # Jinja2 HTML 模板
+│   ├── base.html           # 共享布局（导航栏、侧边栏、日志面板）
+│   ├── dashboard.html      # 仪表盘
+│   ├── inbounds.html       # 入站设置
+│   ├── outbounds.html      # 出站设置
+│   ├── subscriptions.html  # 订阅管理
+│   ├── nodes.html          # 节点列表
+│   └── settings.html       # 设置 + v2fly 升级
+├── bin/                    # v2fly 二进制 + 数据文件（gitignore）
+├── config/                 # v2fly 运行时配置（gitignore）
+├── data/                   # SQLite 数据库（gitignore）
+├── docs/
+│   └── DESIGN.md           # 设计文档
+├── requirements.txt
+└── .gitignore
+```
+
 ## UI 设计风格
 
 - 等宽字体 Consolas/Monaco，无阴影、无渐变、无动画
