@@ -15,24 +15,24 @@ Open http://localhost:8080
 
 ```
 v2ray-webui/
-├── app.py              # Flask application
-├── models.py           # Database models (SQLite)
-├── subscription.py     # Subscription parsing (vmess://, ss://)
-├── node_checker.py     # Node availability checker
-├── v2fly_manager.py    # v2fly process management + config generation
-├── templates/          # Jinja2 templates
-│   ├── base.html       # Shared layout (navbar, sidebar, log panel)
-│   ├── dashboard.html  # Dashboard
-│   ├── inbounds.html   # Inbound settings
-│   ├── outbounds.html  # Outbound settings
-│   ├── subscriptions.html
-│   ├── nodes.html
-│   └── settings.html
-├── bin/                # v2fly binary (gitignored)
-├── config/             # v2fly runtime config (gitignored)
-├── data/               # SQLite database (gitignored)
-├── docs/               # Documentation
-│   └── DESIGN.md       # Design document
+├── app.py                  # Flask application (page routes)
+├── models.py               # Database models (TODO)
+├── subscription.py         # Subscription parsing (TODO)
+├── node_checker.py         # Node availability checker (TODO)
+├── v2fly_manager.py        # v2fly process management (TODO)
+├── templates/
+│   ├── base.html           # Shared layout (navbar, sidebar, log panel)
+│   ├── dashboard.html      # Dashboard
+│   ├── inbounds.html       # Inbound settings
+│   ├── outbounds.html      # Outbound settings
+│   ├── subscriptions.html  # Subscription management
+│   ├── nodes.html          # Node list
+│   └── settings.html       # Settings + v2fly upgrade
+├── bin/                    # v2fly binary + data files (gitignored)
+├── config/                 # v2fly runtime config (gitignored)
+├── data/                   # SQLite database (gitignored)
+├── docs/
+│   └── DESIGN.md           # Design document
 └── requirements.txt
 ```
 
