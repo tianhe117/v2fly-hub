@@ -13,7 +13,6 @@ DEFAULT_SETTINGS = {
     'curl_timeout': '10',
     'test_url': 'http://www.gstatic.com/generate_204',
     'auto_failover': 'true',
-    'web_listen': '0.0.0.0',
     'web_port': '8080',
     'web_username': 'admin',
     'web_password': '',
