@@ -190,10 +190,17 @@ def download_binary(progress_callback=None):
     if not asset:
         return {'success': False, 'message': f'no asset found for platform: {platform_key}'}
 
-    # 先备份当前版本
-    backup_result = backup_current()
-    if not backup_result['success']:
-        return {'success': False, 'message': f'backup failed: {backup_result["message"]}'}
+    # 先备份当前版本（如果存在）
+    bin_dir = get_bin_dir()
+    import platform
+    exe_name = 'v2ray.exe' if platform.system() == 'Windows' else 'v2ray'
+    exe_path = os.path.join(bin_dir, exe_name)
+    backup_result = None
+
+    if os.path.exists(exe_path):
+        backup_result = backup_current()
+        if not backup_result['success']:
+            return {'success': False, 'message': f'backup failed: {backup_result["message"]}'}
 
     try:
         # 下载到临时文件
@@ -220,19 +227,16 @@ def download_binary(progress_callback=None):
                     if progress_callback and total_size > 0:
                         progress_callback(downloaded, total_size)
 
-        # 解压到 bin 目录
-        bin_dir = get_bin_dir()
+        # 解压到 bin 目录（只提取 v2ray 可执行文件）
+        os.makedirs(bin_dir, exist_ok=True)
 
         with zipfile.ZipFile(zip_path, 'r') as zf:
-            # 找到 v2ray 可执行文件
             for name in zf.namelist():
                 if name.endswith('.exe') or name == 'v2ray':
                     target_path = os.path.join(bin_dir, os.path.basename(name))
                     with zf.open(name) as src, open(target_path, 'wb') as dst:
                         dst.write(src.read())
-                    # 设置可执行权限（Linux）
-                    if not name.endswith('.exe'):
-                        os.chmod(target_path, 0o755)
+                    break
 
         # 清理临时文件
         shutil.rmtree(temp_dir, ignore_errors=True)
@@ -240,7 +244,7 @@ def download_binary(progress_callback=None):
         return {
             'success': True,
             'version': update_info['tag_name'],
-            'backup_version': backup_result['version'],
+            'backup_version': backup_result['version'] if backup_result else None,
             'path': bin_dir
         }
     except Exception as e:
