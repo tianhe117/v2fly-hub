@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}dashboard - V2Fly Manager{% endblock %}
+
+{% block navbar_actions %}
+<span style="font-size:11px;color:#888;">v2fly: <span style="color:#4caf50;">running</span> pid 12345</span>
+<button class="btn btn-sm">restart</button>
+<button class="btn btn-sm">stop</button>
+{% endblock %}
+
+{% block content %}
+<style>
+    .stats { display: flex; gap: 1px; margin-bottom: 16px; background: #e0e0e0; border: 1px solid #e0e0e0; border-radius: 3px; overflow: hidden; }
+    .stat-item { flex: 1; background: #fff; padding: 12px 16px; }
+    .stat-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .stat-value { font-size: 16px; font-weight: bold; }
+    .stat-value.ok { color: #4caf50; }
+    .service-card { border: 1px solid #e0e0e0; border-radius: 3px; margin-bottom: 12px; background: #fff; }
+    .service-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+    .service-name { font-weight: bold; }
+    .service-meta { font-size: 11px; color: #888; }
+    .service-actions { display: flex; gap: 4px; }
+    .service-body { padding: 12px; }
+    .flow { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+    .flow-box { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 3px; flex: 1; }
+    .flow-label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 2px; }
+    .flow-arrow { color: #bbb; font-size: 16px; }
+</style>
+
+<div class="stats">
+    <div class="stat-item">
+        <div class="stat-label">v2fly</div>
+        <div class="stat-value ok">running</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-label">services</div>
+        <div class="stat-value">3 / 3</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-label">active node</div>
+        <div class="stat-value">HK-01</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-label">latency</div>
+        <div class="stat-value ok">86ms</div>
+    </div>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <span style="font-weight:bold;">services</span>
+    <button class="btn btn-sm" onclick="document.getElementById('addModal').classList.add('show')">+ add service</button>
+</div>
+
+<div class="service-card">
+    <div class="service-header">
+        <div>
+            <span class="status-dot ok"></span>
+            <span class="service-name">ss-forward</span>
+            <span class="service-meta"> port 666 &middot; shadowsocks</span>
+        </div>
+        <div class="service-actions">
+            <button class="btn-ghost btn-sm">stop</button>
+            <button class="btn-ghost btn-sm">restart</button>
+            <button class="btn-ghost btn-sm">edit</button>
+            <button class="btn-ghost btn-sm" style="color:#e53935;">del</button>
+        </div>
+    </div>
+    <div class="service-body">
+        <div class="flow">
+            <div class="flow-box"><div class="flow-label">inbound</div><div>ss :666 aes-256-gcm</div></div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-box"><div class="flow-label">outbound</div><div>auto-switch (5 nodes, cur: HK-01)</div></div>
+        </div>
+    </div>
+</div>
+
+<div class="service-card">
+    <div class="service-header">
+        <div>
+            <span class="status-dot ok"></span>
+            <span class="service-name">vmess-forward</span>
+            <span class="service-meta"> port 24811 &middot; vmess+ws</span>
+        </div>
+        <div class="service-actions">
+            <button class="btn-ghost btn-sm">stop</button>
+            <button class="btn-ghost btn-sm">restart</button>
+            <button class="btn-ghost btn-sm">edit</button>
+            <button class="btn-ghost btn-sm" style="color:#e53935;">del</button>
+        </div>
+    </div>
+    <div class="service-body">
+        <div class="flow">
+            <div class="flow-box"><div class="flow-label">inbound</div><div>vmess :24811 ws /49c866/</div></div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-box"><div class="flow-label">outbound</div><div>auto-switch (5 nodes, cur: HK-01)</div></div>
+        </div>
+    </div>
+</div>
+
+<div class="service-card">
+    <div class="service-header">
+        <div>
+            <span class="status-dot ok"></span>
+            <span class="service-name">ss-home</span>
+            <span class="service-meta"> port 704 &middot; shadowsocks</span>
+        </div>
+        <div class="service-actions">
+            <button class="btn-ghost btn-sm">stop</button>
+            <button class="btn-ghost btn-sm">restart</button>
+            <button class="btn-ghost btn-sm">edit</button>
+            <button class="btn-ghost btn-sm" style="color:#e53935;">del</button>
+        </div>
+    </div>
+    <div class="service-body">
+        <div class="flow">
+            <div class="flow-box"><div class="flow-label">inbound</div><div>ss :704 aes-256-gcm</div></div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-box"><div class="flow-label">outbound</div><div>freedom (direct)</div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block statusbar_left %}<span class="status-dot ok"></span>v2fly running{% endblock %}
+{% block statusbar_right %}3 services active &middot; last check: 10s ago{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">add service</div>
+        <div class="field"><label>name</label><input class="input" placeholder="ss-forward"></div>
+        <div class="field"><label>inbound</label>
+            <select>
+                <option>ss :666 (aes-256-gcm)</option>
+                <option>vmess :24811 (ws /49c866/)</option>
+                <option>ss :704 (aes-256-gcm)</option>
+                <option value="">+ new inbound...</option>
+            </select>
+        </div>
+        <div class="field"><label>outbound</label>
+            <select>
+                <option>auto-switch (5 nodes)</option>
+                <option>freedom (direct)</option>
+                <option>single-proxy HK-01</option>
+                <option value="">+ new outbound...</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
+            <button class="btn btn-primary">create</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

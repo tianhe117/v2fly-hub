@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}settings - V2Fly Manager{% endblock %}
+
+{% block navbar_actions %}
+<button class="btn btn-primary btn-sm">save</button>
+{% endblock %}
+
+{% block extra_css %}
+.info-table { width: 100%; font-size: 12px; }
+.info-table td { padding: 4px 0; }
+.info-table td:first-child { color: #888; width: 120px; }
+.danger-zone { border-color: #e53935; }
+.danger-zone .section-title { color: #e53935; }
+.upgrade-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.upgrade-info { flex: 1; }
+.upgrade-info .ver { font-weight: bold; }
+.upgrade-info .meta { font-size: 11px; color: #888; }
+.progress-bar { height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden; margin-top: 4px; display: none; }
+.progress-bar .fill { height: 100%; background: #4caf50; width: 0%; }
+{% endblock %}
+
+{% block content %}
+<div class="section">
+    <div class="section-title">v2fly binary</div>
+    <div class="section-body">
+        <div class="upgrade-row">
+            <div class="upgrade-info">
+                <div>current: <span class="ver" id="currentVer">v5.16.1</span></div>
+                <div class="meta">linux-x86_64 &middot; installed 2024-01-10</div>
+            </div>
+            <div>
+                <button class="btn btn-sm" id="checkUpdateBtn" onclick="checkUpdate()">check update</button>
+                <button class="btn btn-sm btn-ok" id="downloadBtn" style="display:none;" onclick="downloadBinary()">download latest</button>
+            </div>
+        </div>
+        <div id="updateInfo" style="display:none;">
+            <div style="font-size:12px;padding:8px 0;border-top:1px solid #f0f0f0;">
+                latest: <span class="ver" id="latestVer">v5.17.0</span>
+                <span style="color:#888;margin-left:8px;" id="latestDate">2024-01-15</span>
+                <div style="margin-top:4px;">
+                    <select id="osSelect" class="input" style="width:auto;height:24px;font-size:11px;">
+                        <option value="linux-64">linux-x86_64</option>
+                        <option value="windows-64">windows-x86_64</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="progress-bar" id="downloadProgress"><div class="fill" id="downloadFill"></div></div>
+        <div id="downloadStatus" style="font-size:11px;color:#888;margin-top:4px;"></div>
+        <div class="field" style="margin-top:12px;">
+            <label>executable path</label>
+            <input class="input" value="./bin/v2fly">
+        </div>
+        <div class="field"><label>config dir</label><input class="input" value="./config"></div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">node check</div>
+    <div class="section-body">
+        <div class="field-row">
+            <div class="field"><label>normal interval (sec)</label><input class="input" type="number" value="240"></div>
+            <div class="field"><label>failover interval (sec)</label><input class="input" type="number" value="30"></div>
+        </div>
+        <div class="field-row">
+            <div class="field"><label>tcp timeout (sec)</label><input class="input" type="number" value="3"></div>
+            <div class="field"><label>curl timeout (sec)</label><input class="input" type="number" value="10"></div>
+        </div>
+        <div class="field"><label>test url</label><input class="input" value="http://www.gstatic.com/generate_204"></div>
+        <div class="field"><label><input type="checkbox" checked> enable auto-failover</label></div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">web ui</div>
+    <div class="section-body">
+        <div class="field-row">
+            <div class="field"><label>listen address</label><input class="input" value="0.0.0.0"></div>
+            <div class="field"><label>port</label><input class="input" type="number" value="8080"></div>
+        </div>
+        <div class="field"><label>password (empty = no auth)</label><input class="input" type="password" placeholder="leave empty for no auth"></div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">system info</div>
+    <div class="section-body">
+        <table class="info-table">
+            <tr><td>v2fly version</td><td>v5.16.1</td></tr>
+            <tr><td>status</td><td>running</td></tr>
+            <tr><td>pid</td><td>12345</td></tr>
+            <tr><td>uptime</td><td>3d 12h</td></tr>
+            <tr><td>db size</td><td>1.2 MB</td></tr>
+            <tr><td>subscriptions</td><td>2</td></tr>
+            <tr><td>total nodes</td><td>12</td></tr>
+            <tr><td>platform</td><td>linux-x86_64</td></tr>
+        </table>
+    </div>
+</div>
+
+<div class="section danger-zone">
+    <div class="section-title">danger zone</div>
+    <div class="section-body">
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-danger btn-sm">clear all nodes</button>
+            <button class="btn btn-danger btn-sm">reset all settings</button>
+            <button class="btn btn-danger btn-sm">clear database</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
+
+{% block extra_js %}
+function checkUpdate() {
+    var btn = document.getElementById('checkUpdateBtn');
+    btn.disabled = true; btn.textContent = 'checking...';
+    addLog('info', '[upgrade] checking latest release from github...');
+    setTimeout(function() {
+        btn.disabled = false; btn.textContent = 'check update';
+        document.getElementById('updateInfo').style.display = '';
+        document.getElementById('downloadBtn').style.display = '';
+        addLog('ok', '[upgrade] latest version: v5.17.0 (2024-01-15)');
+    }, 1500);
+}
+
+function downloadBinary() {
+    var btn = document.getElementById('downloadBtn');
+    var bar = document.getElementById('downloadProgress');
+    var fill = document.getElementById('downloadFill');
+    var status = document.getElementById('downloadStatus');
+    var os = document.getElementById('osSelect').value;
+    btn.disabled = true; btn.textContent = 'downloading...';
+    bar.style.display = ''; fill.style.width = '0%';
+    status.textContent = 'downloading v2ray-' + os + '.zip ...';
+    addLog('info', '[upgrade] downloading v2ray-core v5.17.0 for ' + os + '...');
+
+    var pct = 0;
+    var timer = setInterval(function() {
+        pct += Math.floor(Math.random() * 15) + 5;
+        if (pct >= 100) {
+            pct = 100; clearInterval(timer);
+            fill.style.width = '100%';
+            status.textContent = 'download complete, extracting...';
+            addLog('ok', '[upgrade] download complete');
+            setTimeout(function() {
+                status.textContent = 'installed to ./bin/v2fly, restarting...';
+                addLog('ok', '[upgrade] extracted to ./bin/v2fly');
+                addLog('info', '[v2fly] restarting process...');
+                setTimeout(function() {
+                    document.getElementById('currentVer').textContent = 'v5.17.0';
+                    btn.style.display = 'none';
+                    document.getElementById('updateInfo').style.display = 'none';
+                    bar.style.display = 'none';
+                    status.textContent = 'upgraded to v5.17.0';
+                    addLog('ok', '[v2fly] started, pid 12345');
+                    addLog('ok', '[upgrade] done');
+                }, 1000);
+            }, 500);
+        }
+        fill.style.width = pct + '%';
+    }, 200);
+}
+{% endblock %}

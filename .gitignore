@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime data
+data/*
+!data/.gitkeep
+*.db
+*.sqlite3
+
+# v2fly binary and runtime config
+bin/
+config/*.json
+
+# OS
+.DS_Store
+Thumbs.db

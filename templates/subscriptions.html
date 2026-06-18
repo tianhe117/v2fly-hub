@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}subscriptions - V2Fly Manager{% endblock %}
+
+{% block navbar_actions %}
+<button class="btn btn-sm" onclick="document.getElementById('addSubModal').classList.add('show')">+ add subscription</button>
+{% endblock %}
+
+{% block extra_css %}
+.sub-card { border: 1px solid #e0e0e0; border-radius: 3px; margin-bottom: 16px; background: #fff; }
+.sub-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+.sub-name { font-weight: bold; }
+.sub-meta { font-size: 11px; color: #888; }
+.sub-body { padding: 12px; }
+.kw-line { font-size: 12px; padding: 4px 0; display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+.kw-line:hover { background: #f5f5f5; }
+.kw-label { font-size: 11px; color: #888; width: 50px; flex-shrink: 0; }
+.kw-values { color: #333; }
+.kw-empty { color: #bbb; font-style: italic; }
+{% endblock %}
+
+{% block content %}
+<div class="sub-card">
+    <div class="sub-header">
+        <div>
+            <span class="sub-name">airport-A</span>
+            <span class="sub-meta"> 8 nodes &middot; updated 2024-01-15 10:30</span>
+        </div>
+        <div>
+            <button class="btn-ghost btn-sm">refresh</button>
+            <button class="btn-ghost btn-sm">edit</button>
+            <button class="btn-ghost btn-sm" style="color:#e53935;">del</button>
+        </div>
+    </div>
+    <div class="sub-body">
+        <div class="kw-line" onclick="openKeywords('filter', 1)">
+            <span class="kw-label">filter:</span>
+            <span class="kw-values">HK, JP, Premium</span>
+        </div>
+        <div class="kw-line" onclick="openKeywords('exclude', 1)">
+            <span class="kw-label">exclude:</span>
+            <span class="kw-values">trial, expired</span>
+        </div>
+        <div style="margin-top:12px;">
+            <table>
+                <thead><tr><th>name</th><th>proto</th><th>address</th><th>in pool</th><th></th></tr></thead>
+                <tbody>
+                    <tr><td>HK-01 Premium</td><td><span class="tag">vmess</span></td><td>hk1.example.com:443</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
+                    <tr><td>HK-02 Standard</td><td><span class="tag">vmess</span></td><td>hk2.example.com:443</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
+                    <tr><td>JP-01 Tokyo</td><td><span class="tag">ss</span></td><td>jp1.example.com:8388</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
+                    <tr><td>JP-02 Osaka</td><td><span class="tag">vmess</span></td><td>jp2.example.com:443</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
+                    <tr><td>SG-01 Singapore</td><td><span class="tag">vmess</span></td><td>sg1.example.com:443</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:6px;">3 nodes filtered out by exclude keywords</div>
+    </div>
+</div>
+
+<div class="sub-card">
+    <div class="sub-header">
+        <div>
+            <span class="sub-name">airport-B</span>
+            <span class="sub-meta"> 4 nodes &middot; updated 2024-01-14 18:00</span>
+        </div>
+        <div>
+            <button class="btn-ghost btn-sm">refresh</button>
+            <button class="btn-ghost btn-sm">edit</button>
+            <button class="btn-ghost btn-sm" style="color:#e53935;">del</button>
+        </div>
+    </div>
+    <div class="sub-body">
+        <div class="kw-line" onclick="openKeywords('filter', 2)">
+            <span class="kw-label">filter:</span>
+            <span class="kw-empty">click to set filter keywords</span>
+        </div>
+        <div class="kw-line" onclick="openKeywords('exclude', 2)">
+            <span class="kw-label">exclude:</span>
+            <span class="kw-empty">click to set exclude keywords</span>
+        </div>
+        <div style="margin-top:12px;">
+            <table>
+                <thead><tr><th>name</th><th>proto</th><th>address</th><th>in pool</th><th></th></tr></thead>
+                <tbody>
+                    <tr><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
+                    <tr><td>US-02 San Jose</td><td><span class="tag">vmess</span></td><td>us2.example.com:443</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
+                    <tr><td>TW-01 Taipei</td><td><span class="tag">ss</span></td><td>tw1.example.com:8388</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
+                    <tr><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
+{% block statusbar_right %}2 subscriptions &middot; 12 nodes total{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="addSubModal">
+    <div class="modal">
+        <div class="modal-title">add subscription</div>
+        <div class="field"><label>name</label><input class="input" placeholder="airport-A"></div>
+        <div class="field"><label>url</label><input class="input" placeholder="https://..."></div>
+        <div class="modal-actions">
+            <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
+            <button class="btn btn-primary">add</button>
+        </div>
+    </div>
+</div>
+<div class="modal-overlay" id="kwModal">
+    <div class="modal">
+        <div class="modal-title" id="kwTitle">edit filter</div>
+        <div class="field">
+            <label id="kwLabel">one keyword per line</label>
+            <textarea class="input" id="kwTextarea" rows="8" placeholder="HK&#10;JP&#10;Premium"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('kwModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-primary" onclick="saveKeywords()">save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+var subKeywords = {
+    1: { filter: ['HK', 'JP', 'Premium'], exclude: ['trial', 'expired'] },
+    2: { filter: [], exclude: [] }
+};
+var currentKw = { type: '', subId: 0 };
+
+function openKeywords(type, subId) {
+    currentKw = { type: type, subId: subId };
+    document.getElementById('kwTitle').textContent = 'edit ' + type;
+    document.getElementById('kwLabel').textContent = type + ' keywords (one per line)';
+    var kws = subKeywords[subId][type];
+    document.getElementById('kwTextarea').value = kws.length ? kws.join('\n') : '';
+    document.getElementById('kwModal').classList.add('show');
+}
+
+function saveKeywords() {
+    var raw = document.getElementById('kwTextarea').value.trim();
+    var kws = raw ? raw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean) : [];
+    subKeywords[currentKw.subId][currentKw.type] = kws;
+    document.getElementById('kwModal').classList.remove('show');
+    renderKeywords(currentKw.subId);
+}
+
+function renderKeywords(subId) {
+    var card = document.querySelectorAll('.sub-card')[subId - 1];
+    var lines = card.querySelectorAll('.kw-line');
+    var fk = subKeywords[subId].filter;
+    lines[0].querySelector('.kw-values, .kw-empty').outerHTML = fk.length
+        ? '<span class="kw-values">' + fk.join(', ') + '</span>'
+        : '<span class="kw-empty">click to set filter keywords</span>';
+    var ek = subKeywords[subId].exclude;
+    lines[1].querySelector('.kw-values, .kw-empty').outerHTML = ek.length
+        ? '<span class="kw-values">' + ek.join(', ') + '</span>'
+        : '<span class="kw-empty">click to set exclude keywords</span>';
+}
+{% endblock %}

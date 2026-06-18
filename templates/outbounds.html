@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}outbounds - V2Fly Manager{% endblock %}
+
+{% block navbar_actions %}
+<button class="btn btn-sm" onclick="document.getElementById('addModal').classList.add('show')">+ add outbound</button>
+{% endblock %}
+
+{% block extra_css %}
+.outbound-card { border: 1px solid #e0e0e0; border-radius: 3px; margin-bottom: 12px; background: #fff; }
+.outbound-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+.outbound-name { font-weight: bold; }
+.outbound-meta { font-size: 11px; color: #888; }
+.outbound-body { padding: 12px; }
+.node-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+.node-row .prio { width: 20px; color: #888; text-align: right; }
+.node-row .cur { color: #4caf50; font-size: 11px; }
+.latency-ok { color: #4caf50; }
+.latency-bad { color: #e53935; }
+.latency-warn { color: #ffa726; }
+.radio-group { display: flex; gap: 16px; margin-top: 4px; }
+.radio-group label { font-size: 12px; color: #333; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+{% endblock %}
+
+{% block content %}
+<div class="outbound-card">
+    <div class="outbound-header">
+        <div>
+            <span class="outbound-name">freedom-direct</span>
+            <span class="outbound-meta"> &middot; <span class="tag">freedom</span></span>
+        </div>
+        <div><button class="btn-ghost btn-sm">edit</button> <button class="btn-ghost btn-sm" style="color:#e53935;">del</button></div>
+    </div>
+    <div class="outbound-body">all traffic goes direct. used for reverse proxy (home access).</div>
+</div>
+
+<div class="outbound-card">
+    <div class="outbound-header">
+        <div>
+            <span class="outbound-name">single-HK01</span>
+            <span class="outbound-meta"> &middot; <span class="tag">single</span> vmess hk1.example.com:443</span>
+        </div>
+        <div><button class="btn-ghost btn-sm">edit</button> <button class="btn-ghost btn-sm" style="color:#e53935;">del</button></div>
+    </div>
+    <div class="outbound-body">fixed proxy through HK-01, no auto-switch.</div>
+</div>
+
+<div class="outbound-card">
+    <div class="outbound-header">
+        <div>
+            <span class="outbound-name">auto-switch-pool</span>
+            <span class="outbound-meta"> &middot; <span class="tag">auto-switch</span> 5 nodes &middot; check: 60s</span>
+        </div>
+        <div><button class="btn-ghost btn-sm">edit</button> <button class="btn-ghost btn-sm" style="color:#e53935;">del</button></div>
+    </div>
+    <div class="outbound-body">
+        <div style="font-size:11px;color:#888;margin-bottom:6px;">node priority (top = highest):</div>
+        <div class="node-row"><span class="prio">1.</span> <span class="tag">vmess</span> HK-01 Premium <span class="latency-ok">86ms</span> <span class="cur">[current]</span></div>
+        <div class="node-row"><span class="prio">2.</span> <span class="tag">vmess</span> HK-02 Standard <span class="latency-ok">102ms</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
+        <div class="node-row"><span class="prio">3.</span> <span class="tag">ss</span> JP-01 Tokyo <span class="latency-warn">156ms</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
+        <div class="node-row"><span class="prio">4.</span> <span class="tag">vmess</span> SG-01 Singapore <span class="latency-warn">189ms</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
+        <div class="node-row"><span class="prio">5.</span> <span class="tag">ss</span> US-01 LA <span class="latency-bad">timeout</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
+        <div style="margin-top:8px;"><button class="btn btn-sm">+ add node</button></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
+{% block statusbar_right %}3 outbounds{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">add outbound</div>
+        <div class="field"><label>name</label><input class="input" placeholder="my-outbound"></div>
+        <div class="field"><label>type</label>
+            <div class="radio-group">
+                <label><input type="radio" name="otype" value="freedom" checked onchange="toggleType()"> freedom</label>
+                <label><input type="radio" name="otype" value="single" onchange="toggleType()"> single proxy</label>
+                <label><input type="radio" name="otype" value="auto" onchange="toggleType()"> auto-switch</label>
+            </div>
+        </div>
+        <div id="singleField" style="display:none;">
+            <div class="field"><label>node</label>
+                <select><option>HK-01 Premium (vmess)</option><option>HK-02 Standard (vmess)</option><option>JP-01 Tokyo (ss)</option></select>
+            </div>
+        </div>
+        <div id="autoFields" style="display:none;">
+            <div class="field"><label>check interval (sec)</label><input class="input" type="number" value="60"></div>
+            <div class="field"><label>test url</label><input class="input" value="http://www.gstatic.com/generate_204"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
+            <button class="btn btn-primary">create</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+function toggleType() {
+    var v = document.querySelector('input[name="otype"]:checked').value;
+    document.getElementById('singleField').style.display = v === 'single' ? '' : 'none';
+    document.getElementById('autoFields').style.display = v === 'auto' ? '' : 'none';
+}
+{% endblock %}
