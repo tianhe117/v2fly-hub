@@ -200,23 +200,10 @@ function renderNodes(subId, nodes) {
     }
     html += '</div>';
 
-    if (nodes.length > 0) {
-        html += '<div style="margin-top:12px;">';
-        html += '<table>';
-        html += '<thead><tr><th>name</th><th>proto</th><th>address</th></tr></thead>';
-        html += '<tbody>';
-        nodes.forEach(function(node) {
-            html += '<tr>';
-            html += '<td>' + escapeHtml(node.name) + '</td>';
-            html += '<td><span class="tag">' + node.protocol + '</span></td>';
-            html += '<td>' + escapeHtml(node.address) + ':' + node.port + '</td>';
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-        html += '</div>';
-    } else {
-        html += '<div style="margin-top:12px;color:#888;font-size:12px;">no nodes</div>';
-    }
+    // 只显示节点数量，不显示节点列表
+    html += '<div style="margin-top:12px;font-size:12px;color:#888;">';
+    html += nodes.length + ' nodes available';
+    html += '</div>';
 
     container.innerHTML = html;
 }

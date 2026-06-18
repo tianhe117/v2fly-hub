@@ -2,121 +2,340 @@
 {% block title %}nodes - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
-<button class="btn btn-sm" onclick="checkAll()">check all</button>
+<button class="btn btn-sm" onclick="openAddNodeModal()">+ add node</button>
+<button class="btn btn-sm" onclick="checkAllNodes()">check all</button>
 {% endblock %}
 
 {% block extra_css %}
-tr.current { background: #f0f8f0; }
-tr.disabled { color: #bbb; }
 .lat-ok { color: #4caf50; }
 .lat-bad { color: #e53935; }
 .lat-warn { color: #ffa726; }
 .lat-pending { color: #bbb; }
+.group-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 3px; margin-bottom: 2px; cursor: pointer; }
+.group-header:hover { background: #eee; }
+.group-name { font-weight: bold; }
+.group-count { font-size: 12px; color: #888; margin-left: 8px; }
+.group-actions { display: flex; gap: 4px; }
+.node-row { display: flex; align-items: center; padding: 6px 12px; border: 1px solid #e0e0e0; border-top: none; background: #fff; font-size: 13px; }
+.node-row:last-child { border-radius: 0 0 3px 3px; margin-bottom: 12px; }
+.node-name { flex: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-proto { width: 60px; }
+.node-addr { flex: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #666; }
+.node-tcp { width: 80px; text-align: right; }
+.node-curl { width: 80px; text-align: right; }
+.node-actions { width: 60px; text-align: right; }
+.tag { display: inline-block; padding: 1px 6px; background: #e8e8e8; border-radius: 2px; font-size: 11px; }
+.checking { opacity: 0.5; }
 {% endblock %}
 
 {% block content %}
-<div class="collapse-header" onclick="toggleGroup('g1')">
-    <div><span class="arrow" id="g1-arrow">&#9660;</span> <span class="sub-name">airport-A</span> <span class="sub-count">8 nodes &middot; 5 enabled</span></div>
-    <div>
-        <button class="btn btn-sm" onclick="event.stopPropagation(); checkGroup('g1')">check</button>
-        <button class="btn btn-sm" onclick="event.stopPropagation()">refresh</button>
-    </div>
-</div>
-<div class="collapse-body show" id="g1-body">
-    <table>
-        <thead><tr><th>name</th><th>proto</th><th>address</th><th>tcp</th><th>curl</th><th>status</th><th></th></tr></thead>
-        <tbody>
-            <tr class="current"><td>HK-01 Premium</td><td><span class="tag">vmess</span></td><td>hk1.example.com:443</td><td class="lat-ok">12ms</td><td class="lat-ok">86ms</td><td style="color:#4caf50;">[current]</td><td><button class="btn btn-sm" disabled>in use</button></td></tr>
-            <tr><td>HK-02 Standard</td><td><span class="tag">vmess</span></td><td>hk2.example.com:443</td><td class="lat-ok">15ms</td><td class="lat-ok">102ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
-            <tr><td>JP-01 Tokyo</td><td><span class="tag">ss</span></td><td>jp1.example.com:8388</td><td class="lat-ok">38ms</td><td class="lat-warn">156ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
-            <tr><td>JP-02 Osaka</td><td><span class="tag">vmess</span></td><td>jp2.example.com:443</td><td class="lat-ok">35ms</td><td class="lat-ok">138ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
-            <tr><td>SG-01 Singapore</td><td><span class="tag">vmess</span></td><td>sg1.example.com:443</td><td class="lat-warn">68ms</td><td class="lat-warn">189ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
-            <tr class="disabled"><td>SG-02 Premium</td><td><span class="tag">vmess</span></td><td>sg2.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
-        </tbody>
-    </table>
-</div>
-
-<div class="collapse-header" onclick="toggleGroup('g2')">
-    <div><span class="arrow" id="g2-arrow">&#9654;</span> <span class="sub-name">airport-B</span> <span class="sub-count">4 nodes &middot; 0 enabled</span></div>
-    <div>
-        <button class="btn btn-sm" onclick="event.stopPropagation(); checkGroup('g2')">check</button>
-        <button class="btn btn-sm" onclick="event.stopPropagation()">refresh</button>
-    </div>
-</div>
-<div class="collapse-body" id="g2-body">
-    <table>
-        <thead><tr><th>name</th><th>proto</th><th>address</th><th>tcp</th><th>curl</th><th>status</th><th></th></tr></thead>
-        <tbody>
-            <tr class="disabled"><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>US-02 San Jose</td><td><span class="tag">vmess</span></td><td>us2.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>TW-01 Taipei</td><td><span class="tag">ss</span></td><td>tw1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
-        </tbody>
-    </table>
+<div id="nodeGroups">
+    <div style="text-align:center;padding:40px;color:#888;">loading...</div>
 </div>
 {% endblock %}
 
 {% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
-{% block statusbar_right %}<span id="statusInfo">12 nodes &middot; 5 enabled</span>{% endblock %}
+{% block statusbar_right %}<span id="statusInfo">0 nodes</span>{% endblock %}
+
+{% block modals %}
+<!-- add node -->
+<div class="modal-overlay" id="addNodeModal">
+    <div class="modal">
+        <div class="modal-title">add node</div>
+        <div class="field"><label>name</label><input class="input" id="nodeName" placeholder="HK-01"></div>
+        <div class="field">
+            <label>protocol</label>
+            <select class="input" id="nodeProtocol" onchange="updateConfigFields()">
+                <option value="ss">Shadowsocks</option>
+                <option value="vmess">VMess</option>
+            </select>
+        </div>
+        <div class="field"><label>address</label><input class="input" id="nodeAddr" placeholder="server.example.com"></div>
+        <div class="field"><label>port</label><input class="input" id="nodePort" type="number" placeholder="443"></div>
+        <div id="configFields">
+            <div class="field"><label>method</label><input class="input" id="ssMethod" placeholder="aes-256-gcm"></div>
+            <div class="field"><label>password</label><input class="input" id="ssPassword" placeholder="password"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('addNodeModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-sm" onclick="addNode()">add</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
 {% block extra_js %}
-function toggleGroup(id) {
-    var body = document.getElementById(id + '-body');
-    var arrow = document.getElementById(id + '-arrow');
-    if (body.classList.contains('show')) { body.classList.remove('show'); arrow.innerHTML = '&#9654;'; }
-    else { body.classList.add('show'); arrow.innerHTML = '&#9660;'; }
+var groups = [];
+
+// load grouped nodes
+function loadNodes() {
+    fetch('/api/nodes/grouped')
+        .then(r => r.json())
+        .then(data => {
+            groups = data;
+            renderGroups();
+            updateStatus();
+        })
+        .catch(err => {
+            document.getElementById('nodeGroups').innerHTML = '<div style="text-align:center;padding:40px;color:#e53935;">load failed: ' + err + '</div>';
+        });
 }
 
-function latClass(ms) {
+// render groups
+function renderGroups() {
+    var container = document.getElementById('nodeGroups');
+    var html = '';
+
+    groups.forEach(function(group, idx) {
+        var sub = group.sub;
+        var nodes = group.nodes;
+        var groupId = 'group-' + sub.id;
+
+        html += '<div class="group-header" onclick="toggleGroup(\'' + groupId + '\')">';
+        html += '<div>';
+        html += '<span class="group-name">' + escapeHtml(sub.name) + '</span>';
+        html += '<span class="group-count">' + nodes.length + ' nodes</span>';
+        html += '</div>';
+        html += '<div class="group-actions">';
+        if (nodes.length > 0) {
+            html += '<button class="btn btn-sm" onclick="event.stopPropagation(); checkGroup(' + idx + ')">check</button>';
+        }
+        html += '</div>';
+        html += '</div>';
+
+        html += '<div id="' + groupId + '-body" style="display:' + (idx === 0 ? 'block' : 'none') + '">';
+        if (nodes.length === 0) {
+            html += '<div class="node-row" style="color:#888;font-size:12px;">no nodes</div>';
+        } else {
+            nodes.forEach(function(node) {
+                html += '<div class="node-row" id="node-' + node.id + '">';
+                html += '<div class="node-name">' + escapeHtml(node.name) + '</div>';
+                html += '<div class="node-proto"><span class="tag">' + node.protocol + '</span></div>';
+                html += '<div class="node-addr">' + escapeHtml(node.address) + ':' + node.port + '</div>';
+                html += '<div class="node-tcp ' + getLatClass(node.tcp_latency) + '">' + formatLat(node.tcp_latency) + '</div>';
+                html += '<div class="node-curl ' + getLatClass(node.curl_latency) + '">' + formatLat(node.curl_latency) + '</div>';
+                html += '<div class="node-actions"><button class="btn btn-sm" onclick="checkNode(' + node.id + ')">check</button></div>';
+                html += '</div>';
+            });
+        }
+        html += '</div>';
+    });
+
+    if (groups.length === 0 || (groups.length === 1 && groups[0].nodes.length === 0 && groups[0].sub.id === 0)) {
+        html = '<div style="text-align:center;padding:40px;color:#888;">no nodes yet</div>';
+    }
+
+    container.innerHTML = html;
+}
+
+function toggleGroup(id) {
+    var body = document.getElementById(id + '-body');
+    body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function getLatClass(ms) {
+    if (ms === null || ms === undefined) return 'lat-pending';
+    if (ms < 0) return 'lat-bad';
     if (ms <= 150) return 'lat-ok';
     if (ms <= 300) return 'lat-warn';
     return 'lat-bad';
 }
 
-function checkRows(rows, i) {
-    if (i >= rows.length) { addLog('ok', '[check] all done'); return; }
-    var tr = rows[i];
-    var name = tr.children[0].textContent;
-    var tcpCell = tr.children[3];
-    var curlCell = tr.children[4];
-    tcpCell.textContent = '...'; tcpCell.className = 'lat-pending';
-    curlCell.textContent = '...'; curlCell.className = 'lat-pending';
-    flashStatus('checking ' + (i + 1) + '/' + rows.length + ' ...');
-
-    setTimeout(function() {
-        var tcpMs = Math.floor(Math.random() * 80) + 5;
-        tcpCell.textContent = tcpMs + 'ms'; tcpCell.className = latClass(tcpMs);
-        setTimeout(function() {
-            var curlMs = tcpMs + Math.floor(Math.random() * 150) + 30;
-            curlCell.textContent = curlMs + 'ms'; curlCell.className = latClass(curlMs);
-            addLog('info', '[check] ' + name + ': tcp ' + tcpMs + 'ms, curl ' + curlMs + 'ms');
-            checkRows(rows, i + 1);
-        }, 200 + Math.random() * 300);
-    }, 150 + Math.random() * 200);
+function formatLat(ms) {
+    if (ms === null || ms === undefined) return '-';
+    if (ms < 0) return 'timeout';
+    return ms + 'ms';
 }
 
-function checkGroup(groupId) {
-    var body = document.getElementById(groupId + '-body');
-    var rows = Array.prototype.slice.call(body.querySelectorAll('tbody tr'));
-    addLog('info', '[check] checking group ' + groupId + ' (' + rows.length + ' nodes)...');
-    checkRows(rows, 0);
+function updateStatus() {
+    var total = 0;
+    groups.forEach(function(g) { total += g.nodes.length; });
+    document.getElementById('statusInfo').textContent = total + ' nodes';
 }
 
-function checkAll() {
-    document.querySelectorAll('.collapse-body').forEach(function(body) {
-        if (!body.classList.contains('show')) {
-            var id = body.id.replace('-body', '');
-            toggleGroup(id);
+// check single node
+function checkNode(nodeId) {
+    var el = document.getElementById('node-' + nodeId);
+    if (el) el.classList.add('checking');
+
+    fetch('/api/nodes/check', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({node_ids: [nodeId]})
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success && result.results.length > 0) {
+            var r = result.results[0];
+            updateNodeLat(r.id, r.tcp, r.curl);
+            addLog('info', '[check] ' + r.name + ': tcp ' + formatLat(r.tcp) + ', curl ' + formatLat(r.curl));
         }
+        if (el) el.classList.remove('checking');
+    })
+    .catch(err => {
+        addLog('error', '[check] failed: ' + err);
+        if (el) el.classList.remove('checking');
     });
-    setTimeout(function() {
-        var allRows = Array.prototype.slice.call(document.querySelectorAll('.collapse-body tbody tr'));
-        addLog('info', '[check] checking all (' + allRows.length + ' nodes)...');
-        checkRows(allRows, 0);
-    }, 100);
 }
 
-function flashStatus(text) { document.getElementById('statusInfo').textContent = text; }
+// check group
+function checkGroup(groupIdx) {
+    var group = groups[groupIdx];
+    var nodeIds = group.nodes.map(n => n.id);
+    if (nodeIds.length === 0) return;
+
+    addLog('info', '[check] checking ' + group.sub.name + ' (' + nodeIds.length + ' nodes)...');
+
+    // mark all as checking
+    nodeIds.forEach(id => {
+        var el = document.getElementById('node-' + id);
+        if (el) el.classList.add('checking');
+    });
+
+    fetch('/api/nodes/check', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({node_ids: nodeIds})
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            result.results.forEach(r => {
+                updateNodeLat(r.id, r.tcp, r.curl);
+            });
+            addLog('ok', '[check] done: ' + result.results.length + ' nodes checked');
+        }
+        nodeIds.forEach(id => {
+            var el = document.getElementById('node-' + id);
+            if (el) el.classList.remove('checking');
+        });
+    })
+    .catch(err => {
+        addLog('error', '[check] failed: ' + err);
+        nodeIds.forEach(id => {
+            var el = document.getElementById('node-' + id);
+            if (el) el.classList.remove('checking');
+        });
+    });
+}
+
+// check all nodes
+function checkAllNodes() {
+    addLog('info', '[check] checking all nodes...');
+    fetch('/api/nodes/check', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({all: true})
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            result.results.forEach(r => {
+                updateNodeLat(r.id, r.tcp, r.curl);
+            });
+            addLog('ok', '[check] done: ' + result.results.length + ' nodes checked');
+        }
+    })
+    .catch(err => addLog('error', '[check] failed: ' + err));
+}
+
+// update node latency display
+function updateNodeLat(nodeId, tcp, curl) {
+    var row = document.getElementById('node-' + nodeId);
+    if (!row) return;
+
+    var tcpCell = row.querySelector('.node-tcp');
+    var curlCell = row.querySelector('.node-curl');
+
+    tcpCell.textContent = formatLat(tcp);
+    tcpCell.className = 'node-tcp ' + getLatClass(tcp);
+
+    curlCell.textContent = formatLat(curl);
+    curlCell.className = 'node-curl ' + getLatClass(curl);
+
+    // update in memory
+    groups.forEach(g => {
+        g.nodes.forEach(n => {
+            if (n.id === nodeId) {
+                n.tcp_latency = tcp;
+                n.curl_latency = curl;
+            }
+        });
+    });
+}
+
+// add node modal
+function openAddNodeModal() {
+    document.getElementById('nodeName').value = '';
+    document.getElementById('nodeAddr').value = '';
+    document.getElementById('nodePort').value = '';
+    document.getElementById('ssMethod').value = '';
+    document.getElementById('ssPassword').value = '';
+    updateConfigFields();
+    document.getElementById('addNodeModal').classList.add('show');
+}
+
+function updateConfigFields() {
+    var proto = document.getElementById('nodeProtocol').value;
+    var container = document.getElementById('configFields');
+    if (proto === 'ss') {
+        container.innerHTML = '<div class="field"><label>method</label><input class="input" id="ssMethod" placeholder="aes-256-gcm"></div><div class="field"><label>password</label><input class="input" id="ssPassword" placeholder="password"></div>';
+    } else if (proto === 'vmess') {
+        container.innerHTML = '<div class="field"><label>uuid</label><input class="input" id="vmessUuid" placeholder="uuid"></div><div class="field"><label>alterId</label><input class="input" id="vmessAid" type="number" value="0"></div>';
+    }
+}
+
+function addNode() {
+    var name = document.getElementById('nodeName').value.trim();
+    var protocol = document.getElementById('nodeProtocol').value;
+    var address = document.getElementById('nodeAddr').value.trim();
+    var port = parseInt(document.getElementById('nodePort').value) || 0;
+
+    if (!name || !address || !port) {
+        addLog('error', '[node] name, address and port required');
+        return;
+    }
+
+    var config = {};
+    if (protocol === 'ss') {
+        config.method = document.getElementById('ssMethod').value.trim() || 'aes-256-gcm';
+        config.password = document.getElementById('ssPassword').value.trim();
+    } else if (protocol === 'vmess') {
+        config.id = document.getElementById('vmessUuid').value.trim();
+        config.aid = parseInt(document.getElementById('vmessAid').value) || 0;
+    }
+
+    fetch('/api/nodes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: name,
+            protocol: protocol,
+            address: address,
+            port: port,
+            config_json: JSON.stringify(config)
+        })
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            document.getElementById('addNodeModal').classList.remove('show');
+            addLog('ok', '[node] added ' + name);
+            loadNodes();
+        } else {
+            addLog('error', '[node] ' + result.message);
+        }
+    })
+    .catch(err => addLog('error', '[node] ' + err));
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// init
+loadNodes();
 {% endblock %}

@@ -5,6 +5,7 @@ from . import db
 from . import v2fly_manager
 from . import upgrade
 from . import subscription
+from . import checker
 import json
 import hashlib
 import os
@@ -410,6 +411,56 @@ def api_get_nodes_by_sub(sub_id):
     """获取订阅下的节点"""
     nodes = db.get_nodes_by_sub(sub_id)
     return jsonify(nodes)
+
+
+@app.route('/api/nodes/grouped', methods=['GET'])
+@auth_required
+def api_get_nodes_grouped():
+    """获取按订阅分组的节点"""
+    groups = db.get_nodes_grouped()
+    return jsonify(groups)
+
+
+@app.route('/api/nodes', methods=['POST'])
+@auth_required
+def api_add_node():
+    """添加用户自定义节点"""
+    data = request.json
+    name = data.get('name', '').strip()
+    protocol = data.get('protocol', '').strip()
+    address = data.get('address', '').strip()
+    port = data.get('port', 0)
+    config_json = data.get('config_json', '{}')
+
+    if not name or not protocol or not address or not port:
+        return jsonify({'success': False, 'message': 'missing required fields'})
+
+    node_id = db.add_custom_node(name, protocol, address, port, config_json)
+    return jsonify({'success': True, 'id': node_id})
+
+
+@app.route('/api/nodes/<int:node_id>', methods=['DELETE'])
+@auth_required
+def api_delete_node(node_id):
+    """删除节点"""
+    db.delete_node(node_id)
+    return jsonify({'success': True})
+
+
+@app.route('/api/nodes/check', methods=['POST'])
+@auth_required
+def api_check_nodes():
+    """检测节点延迟"""
+    data = request.json
+    node_ids = data.get('node_ids', [])
+    check_all = data.get('all', False)
+
+    results = checker.check_nodes(node_ids=node_ids, check_all=check_all)
+
+    if not results:
+        return jsonify({'success': False, 'message': 'no nodes to check'})
+
+    return jsonify({'success': True, 'results': results})
 
 
 if __name__ == '__main__':

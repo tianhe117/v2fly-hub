@@ -53,16 +53,33 @@ def init_db():
     conn.execute('''
         CREATE TABLE IF NOT EXISTS nodes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sub_id INTEGER NOT NULL,
+            sub_id INTEGER DEFAULT 0,
             name TEXT NOT NULL,
             protocol TEXT NOT NULL,
             address TEXT NOT NULL,
             port INTEGER NOT NULL,
             config_json TEXT NOT NULL,
             is_in_pool BOOLEAN DEFAULT 0,
-            FOREIGN KEY (sub_id) REFERENCES subscriptions(id) ON DELETE CASCADE
+            tcp_latency INTEGER,
+            curl_latency INTEGER,
+            last_check_at TIMESTAMP
         )
     ''')
+    conn.commit()
+
+    # 迁移：添加新列（如果不存在）
+    try:
+        conn.execute('ALTER TABLE nodes ADD COLUMN tcp_latency INTEGER')
+    except:
+        pass
+    try:
+        conn.execute('ALTER TABLE nodes ADD COLUMN curl_latency INTEGER')
+    except:
+        pass
+    try:
+        conn.execute('ALTER TABLE nodes ADD COLUMN last_check_at TIMESTAMP')
+    except:
+        pass
     conn.commit()
     conn.close()
 
@@ -241,6 +258,58 @@ def get_all_nodes():
     nodes = conn.execute('SELECT * FROM nodes ORDER BY sub_id, id').fetchall()
     conn.close()
     return [dict(n) for n in nodes]
+
+
+def update_node_latency(node_id, tcp_latency, curl_latency):
+    """更新节点延迟"""
+    from datetime import datetime
+    conn = get_db()
+    conn.execute(
+        'UPDATE nodes SET tcp_latency = ?, curl_latency = ?, last_check_at = ? WHERE id = ?',
+        (tcp_latency, curl_latency, datetime.now().isoformat(), node_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_nodes_grouped():
+    """获取按订阅分组的节点（包括用户自定义节点）"""
+    conn = get_db()
+    # 用户自定义节点（sub_id = 0）
+    custom_nodes = conn.execute('SELECT * FROM nodes WHERE sub_id = 0 ORDER BY id').fetchall()
+    result = [{'sub': {'id': 0, 'name': 'Custom Nodes'}, 'nodes': [dict(n) for n in custom_nodes]}]
+
+    # 订阅节点
+    subs = conn.execute('SELECT * FROM subscriptions ORDER BY id').fetchall()
+    for sub in subs:
+        nodes = conn.execute('SELECT * FROM nodes WHERE sub_id = ? ORDER BY id', (sub['id'],)).fetchall()
+        result.append({
+            'sub': dict(sub),
+            'nodes': [dict(n) for n in nodes]
+        })
+    conn.close()
+    return result
+
+
+def add_custom_node(name, protocol, address, port, config_json):
+    """添加用户自定义节点"""
+    conn = get_db()
+    cursor = conn.execute(
+        'INSERT INTO nodes (sub_id, name, protocol, address, port, config_json) VALUES (0, ?, ?, ?, ?, ?)',
+        (name, protocol, address, port, config_json)
+    )
+    node_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return node_id
+
+
+def delete_node(node_id):
+    """删除节点"""
+    conn = get_db()
+    conn.execute('DELETE FROM nodes WHERE id = ?', (node_id,))
+    conn.commit()
+    conn.close()
 
 
 def clear_database():
