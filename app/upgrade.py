@@ -120,7 +120,7 @@ def get_backup_info():
 
 
 def backup_current():
-    """备份当前版本"""
+    """备份当前版本（只保留一个备份）"""
     bin_dir = get_bin_dir()
     backup_dir = get_backup_dir()
 
@@ -133,15 +133,16 @@ def backup_current():
         return {'success': False, 'message': 'current binary not found'}
 
     try:
-        # 创建备份目录
+        # 清空备份目录（只保留一个备份）
+        if os.path.exists(backup_dir):
+            shutil.rmtree(backup_dir)
         os.makedirs(backup_dir, exist_ok=True)
 
         # 获取当前版本
         current_version = get_current_version() or 'unknown'
 
-        # 备份文件名带时间戳
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_name = f'{exe_name}.{timestamp}.bak'
+        # 备份文件名
+        backup_name = f'{exe_name}.bak'
         backup_path = os.path.join(backup_dir, backup_name)
 
         # 复制文件
@@ -150,7 +151,6 @@ def backup_current():
         # 保存备份信息
         backup_info = {
             'version': current_version,
-            'timestamp': timestamp,
             'filename': backup_name,
             'platform': get_platform_key(),
             'created_at': datetime.now().isoformat()
@@ -276,21 +276,15 @@ def restore_backup():
         return {'success': False, 'message': 'backup file not found'}
 
     try:
-        # 备份当前版本（以防万一）
-        current_backup = backup_current()
-
         # 恢复备份
         shutil.copy2(backup_path, target_path)
 
-        # 删除备份信息文件（已恢复）
-        info_file = os.path.join(backup_dir, 'backup_info.json')
-        if os.path.exists(info_file):
-            os.remove(info_file)
+        # 清空备份目录
+        shutil.rmtree(backup_dir, ignore_errors=True)
 
         return {
             'success': True,
-            'restored_version': backup_info['version'],
-            'current_backup': current_backup.get('version')
+            'restored_version': backup_info['version']
         }
     except Exception as e:
         return {'success': False, 'message': str(e)}
