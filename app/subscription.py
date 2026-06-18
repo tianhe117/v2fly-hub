@@ -3,29 +3,6 @@ import base64
 import json
 
 
-# country code to emoji flag mapping
-COUNTRY_FLAGS = {
-    'HK': '🇭🇰', 'SG': '🇸🇬', 'JP': '🇯🇵', 'KR': '🇰🇷', 'TW': '🇹🇼',
-    'US': '🇺🇸', 'UK': '🇬🇧', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
-    'CA': '🇨🇦', 'AU': '🇦🇺', 'IN': '🇮🇳', 'BR': '🇧🇷', 'NL': '🇳🇱',
-    'RU': '🇷🇺', 'TR': '🇹🇷', 'VN': '🇻🇳', 'TH': '🇹🇭', 'MY': '🇲🇾',
-    'PH': '🇵🇭', 'ID': '🇮🇩', 'AR': '🇦🇷', 'CL': '🇨🇱', 'CO': '🇨🇴',
-    'MX': '🇲🇽', 'PE': '🇵🇪', 'PL': '🇵🇱', 'IT': '🇮🇹', 'ES': '🇪🇸',
-    'SE': '🇸🇪', 'NO': '🇳🇴', 'FI': '🇫🇮', 'DK': '🇩🇰', 'CZ': '🇨🇿',
-    'UA': '🇺🇦', 'ZA': '🇿🇦', 'EG': '🇪🇬', 'IL': '🇮🇱', 'AE': '🇦🇪',
-}
-
-
-def get_flag(name):
-    """从节点名称中提取国家代码并返回 emoji 国旗"""
-    name_upper = name.upper()
-    for code, flag in COUNTRY_FLAGS.items():
-        # 匹配名称开头或常见格式如 "HK-01", "[HK]", "(HK)"
-        if name_upper.startswith(code) or f' {code} ' in f' {name_upper} ' or f'-{code}' in name_upper:
-            return flag
-    return '🏳️'
-
-
 def fetch_subscription(url):
     """从 URL 获取订阅内容"""
     try:

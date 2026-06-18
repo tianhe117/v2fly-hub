@@ -367,23 +367,6 @@ function formatBytes(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// country flags
-var FLAGS = {
-    'HK': '🇭🇰', 'SG': '🇸🇬', 'JP': '🇯🇵', 'KR': '🇰🇷', 'TW': '🇹🇼',
-    'US': '🇺🇸', 'UK': '🇬🇧', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
-    'CA': '🇨🇦', 'AU': '🇦🇺', 'IN': '🇮🇳', 'NL': '🇳🇱', 'RU': '🇷🇺'
-};
-
-function getFlag(name) {
-    var upper = name.toUpperCase();
-    for (var code in FLAGS) {
-        if (upper.startsWith(code) || upper.includes('-' + code) || upper.includes(' ' + code + ' ') || upper.includes('[' + code + ']')) {
-            return FLAGS[code];
-        }
-    }
-    return '🏳️';
-}
-
 // escape html
 function escapeHtml(text) {
     if (!text) return '';
