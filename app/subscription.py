@@ -1,6 +1,7 @@
 import urllib.request
 import base64
 import json
+import yaml
 
 
 def fetch_subscription(url):
@@ -81,106 +82,268 @@ def parse_nodes(content):
 
 
 def parse_clash_nodes(content):
-    """解析 Clash 格式的节点配置"""
-    nodes = []
+    """解析 Clash 格式的节点配置（使用 PyYAML）"""
+    try:
+        config = yaml.safe_load(content)
+    except Exception:
+        # YAML 解析失败，尝试只解析 proxies 部分
+        try:
+            idx = content.find('proxies:')
+            if idx < 0:
+                return []
+            lines = content[idx:].split('\n')
+            proxy_lines = ['proxies:']
+            for line in lines[1:]:
+                stripped = line.rstrip()
+                if stripped and not stripped[0].isspace() and not stripped.startswith('-'):
+                    break
+                proxy_lines.append(line)
+            proxy_content = '\n'.join(proxy_lines)
+            config = yaml.safe_load(proxy_content)
+        except Exception:
+            return []
 
-    # 简单的 YAML 解析（不依赖 pyyaml）
-    in_proxies = False
-    current_node = None
+    proxies = config.get('proxies', [])
+    if not proxies:
+        return []
 
-    for line in content.split('\n'):
-        line = line.rstrip()
-
-        # 找到 proxies: 部分
-        if line.strip() == 'proxies:':
-            in_proxies = True
-            continue
-
-        if not in_proxies:
-            continue
-
-        # 遇到新的顶级 key，结束解析
-        if line and not line.startswith(' ') and not line.startswith('-'):
-            break
-
-        # 解析节点
-        if line.strip().startswith('- {') or line.strip().startswith('-{'):
-            # 单行格式: - {name: xxx, type: ss, ...}
-            if current_node:
-                nodes.append(current_node)
-
-            # 提取花括号内的内容
-            start = line.index('{')
-            end = line.rindex('}')
-            items_str = line[start+1:end]
-
-            current_node = {}
-            for item in items_str.split(','):
-                if ':' in item:
-                    key, value = item.split(':', 1)
-                    current_node[key.strip()] = value.strip().strip('\'\"')
-
-        elif line.strip().startswith('- name:'):
-            # 多行格式开始
-            if current_node:
-                nodes.append(current_node)
-
-            current_node = {'name': line.split(':', 1)[1].strip().strip('\'\"')}
-
-        elif current_node and ':' in line:
-            # 多行格式的属性
-            key, value = line.split(':', 1)
-            key = key.strip()
-            value = value.strip().strip('\'\"')
-            if key and value:
-                current_node[key] = value
-
-    # 添加最后一个节点
-    if current_node:
-        nodes.append(current_node)
-
-    # 转换为标准格式
     result = []
-    for node in nodes:
-        name = node.get('name', 'unknown')
-        node_type = node.get('type', '').lower()
-        server = node.get('server', '')
-        port = int(node.get('port', 0))
-
-        if not server or not port:
+    for proxy in proxies:
+        if not isinstance(proxy, dict):
             continue
 
-        if node_type == 'ss':
-            config = {
-                'method': node.get('cipher', 'aes-256-gcm'),
-                'password': node.get('password', '')
-            }
-            result.append({
-                'name': name,
-                'protocol': 'ss',
-                'address': server,
-                'port': port,
-                'config_json': json.dumps(config)
-            })
-        elif node_type == 'vmess':
-            config = {
-                'id': node.get('uuid', ''),
-                'aid': int(node.get('alterId', 0)),
-                'net': node.get('network', 'tcp'),
-                'type': node.get('network', 'none'),
-                'host': node.get('ws-opts', {}).get('headers', {}).get('Host', ''),
-                'path': node.get('ws-opts', {}).get('path', ''),
-                'tls': 'tls' if node.get('tls', False) else ''
-            }
-            result.append({
-                'name': name,
-                'protocol': 'vmess',
-                'address': server,
-                'port': port,
-                'config_json': json.dumps(config)
-            })
+        node = parse_clash_node(proxy)
+        if node:
+            result.append(node)
 
     return result
+
+
+def parse_clash_node(proxy):
+    """解析单个 Clash 节点（参考 passwall2）"""
+    name = proxy.get('name', 'unknown')
+    node_type = proxy.get('type', '').lower()
+    server = proxy.get('server', '')
+    port = int(proxy.get('port', 0))
+
+    if not server or not port:
+        return None
+
+    # 获取公共的 TLS 相关配置
+    tls = proxy.get('tls', False)
+    skip_cert_verify = proxy.get('skip-cert-verify', False)
+    sni = proxy.get('sni', '')
+
+    if node_type == 'ss':
+        cfg = {
+            'method': proxy.get('cipher', 'aes-256-gcm'),
+            'password': proxy.get('password', ''),
+        }
+        # 处理插件
+        plugin = proxy.get('plugin', '')
+        if plugin:
+            cfg['plugin'] = plugin
+            plugin_opts = proxy.get('plugin-opts', {})
+            if plugin_opts:
+                opts = []
+                if 'mode' in plugin_opts:
+                    opts.append(f"obfs={plugin_opts['mode']}")
+                if 'host' in plugin_opts:
+                    opts.append(f"obfs-host={plugin_opts['host']}")
+                cfg['plugin_opts'] = ';'.join(opts)
+        return {
+            'name': name,
+            'protocol': 'ss',
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    elif node_type == 'ssr':
+        cfg = {
+            'method': proxy.get('cipher', 'aes-256-gcm'),
+            'password': proxy.get('password', ''),
+            'obfs': proxy.get('obfs', ''),
+            'protocol': proxy.get('protocol', ''),
+            'obfs_param': proxy.get('obfs-param', ''),
+            'protocol_param': proxy.get('protocol-param', ''),
+        }
+        return {
+            'name': name,
+            'protocol': 'ssr',
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    elif node_type == 'vmess':
+        # 处理传输层
+        network = proxy.get('network', 'tcp')
+        ws_opts = proxy.get('ws-opts') or {}
+        h2_opts = proxy.get('h2-opts') or {}
+        grpc_opts = proxy.get('grpc-opts') or {}
+
+        cfg = {
+            'id': proxy.get('uuid', ''),
+            'aid': int(proxy.get('alterId', 0)),
+            'security': proxy.get('cipher', 'auto'),
+            'network': network,
+            'tls': bool(tls),
+            'sni': sni,
+            'skip_cert_verify': bool(skip_cert_verify),
+        }
+
+        # WebSocket
+        if network == 'ws' and ws_opts:
+            headers = ws_opts.get('headers') or {}
+            cfg['ws_host'] = headers.get('Host', '')
+            cfg['ws_path'] = ws_opts.get('path', '')
+
+        # HTTP/2
+        elif network == 'h2' and h2_opts:
+            cfg['h2_host'] = h2_opts.get('host', [])
+            cfg['h2_path'] = h2_opts.get('path', '')
+
+        # gRPC
+        elif network == 'grpc' and grpc_opts:
+            cfg['grpc_service_name'] = grpc_opts.get('grpc-service-name', '')
+
+        return {
+            'name': name,
+            'protocol': 'vmess',
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    elif node_type == 'vless':
+        network = proxy.get('network', 'tcp')
+        ws_opts = proxy.get('ws-opts') or {}
+        grpc_opts = proxy.get('grpc-opts') or {}
+        reality_opts = proxy.get('reality-opts') or {}
+
+        cfg = {
+            'id': proxy.get('uuid', ''),
+            'flow': proxy.get('flow', ''),
+            'encryption': proxy.get('encryption', 'none'),
+            'network': network,
+            'tls': bool(tls),
+            'sni': sni or proxy.get('servername', ''),
+            'skip_cert_verify': bool(skip_cert_verify),
+        }
+
+        # Reality
+        if reality_opts:
+            cfg['reality'] = True
+            cfg['reality_public_key'] = reality_opts.get('public-key', '')
+            cfg['reality_short_id'] = reality_opts.get('short-id', '')
+
+        # WebSocket
+        if network == 'ws' and ws_opts:
+            headers = ws_opts.get('headers') or {}
+            cfg['ws_host'] = headers.get('Host', '')
+            cfg['ws_path'] = ws_opts.get('path', '')
+
+        # gRPC
+        elif network == 'grpc' and grpc_opts:
+            cfg['grpc_service_name'] = grpc_opts.get('grpc-service-name', '')
+
+        return {
+            'name': name,
+            'protocol': 'vless',
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    elif node_type == 'trojan':
+        network = proxy.get('network', 'tcp')
+        ws_opts = proxy.get('ws-opts') or {}
+        grpc_opts = proxy.get('grpc-opts') or {}
+
+        cfg = {
+            'password': proxy.get('password', ''),
+            'sni': sni,
+            'alpn': proxy.get('alpn', []),
+            'skip_cert_verify': bool(skip_cert_verify),
+            'network': network,
+        }
+
+        # WebSocket
+        if network == 'ws' and ws_opts:
+            headers = ws_opts.get('headers') or {}
+            cfg['ws_host'] = headers.get('Host', '')
+            cfg['ws_path'] = ws_opts.get('path', '')
+
+        # gRPC
+        elif network == 'grpc' and grpc_opts:
+            cfg['grpc_service_name'] = grpc_opts.get('grpc-service-name', '')
+
+        return {
+            'name': name,
+            'protocol': 'trojan',
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    elif node_type in ('hysteria', 'hysteria2', 'hy2'):
+        cfg = {
+            'password': proxy.get('password', '') or proxy.get('auth', ''),
+            'sni': sni,
+            'skip_cert_verify': bool(skip_cert_verify),
+            'up_mbps': proxy.get('up-mbps', 100),
+            'down_mbps': proxy.get('down-mbps', 100),
+        }
+
+        # Hysteria2 混淆
+        obfs = proxy.get('obfs', '')
+        if obfs:
+            cfg['obfs'] = obfs
+            cfg['obfs_password'] = proxy.get('obfs-password', '')
+
+        return {
+            'name': name,
+            'protocol': node_type,
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    elif node_type == 'tuic':
+        cfg = {
+            'uuid': proxy.get('uuid', ''),
+            'password': proxy.get('password', ''),
+            'sni': sni,
+            'skip_cert_verify': bool(skip_cert_verify),
+            'alpn': proxy.get('alpn', []),
+            'congestion_control': proxy.get('congestion-control', 'cubic'),
+            'udp_relay_mode': proxy.get('udp-relay-mode', 'native'),
+        }
+        return {
+            'name': name,
+            'protocol': 'tuic',
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    elif node_type == 'anytls':
+        cfg = {
+            'password': proxy.get('password', ''),
+            'sni': sni,
+            'skip_cert_verify': bool(skip_cert_verify),
+        }
+        return {
+            'name': name,
+            'protocol': 'anytls',
+            'address': server,
+            'port': port,
+            'config_json': json.dumps(cfg)
+        }
+
+    # 未知类型，跳过
+    return None
 
 
 def decode_vmess(vmess_url):
