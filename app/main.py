@@ -370,6 +370,10 @@ def refresh_subscription(sub_id):
     if not result['success']:
         return {'success': False, 'message': result['message']}
 
+    # 更新流量信息
+    if result.get('info'):
+        db.update_subscription_traffic(sub_id, result['info'])
+
     # 解析节点
     nodes = subscription.parse_nodes(result['content'])
 

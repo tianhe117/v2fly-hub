@@ -3,12 +3,58 @@ import base64
 import json
 
 
+# country code to emoji flag mapping
+COUNTRY_FLAGS = {
+    'HK': '🇭🇰', 'SG': '🇸🇬', 'JP': '🇯🇵', 'KR': '🇰🇷', 'TW': '🇹🇼',
+    'US': '🇺🇸', 'UK': '🇬🇧', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
+    'CA': '🇨🇦', 'AU': '🇦🇺', 'IN': '🇮🇳', 'BR': '🇧🇷', 'NL': '🇳🇱',
+    'RU': '🇷🇺', 'TR': '🇹🇷', 'VN': '🇻🇳', 'TH': '🇹🇭', 'MY': '🇲🇾',
+    'PH': '🇵🇭', 'ID': '🇮🇩', 'AR': '🇦🇷', 'CL': '🇨🇱', 'CO': '🇨🇴',
+    'MX': '🇲🇽', 'PE': '🇵🇪', 'PL': '🇵🇱', 'IT': '🇮🇹', 'ES': '🇪🇸',
+    'SE': '🇸🇪', 'NO': '🇳🇴', 'FI': '🇫🇮', 'DK': '🇩🇰', 'CZ': '🇨🇿',
+    'UA': '🇺🇦', 'ZA': '🇿🇦', 'EG': '🇪🇬', 'IL': '🇮🇱', 'AE': '🇦🇪',
+}
+
+
+def get_flag(name):
+    """从节点名称中提取国家代码并返回 emoji 国旗"""
+    name_upper = name.upper()
+    for code, flag in COUNTRY_FLAGS.items():
+        # 匹配名称开头或常见格式如 "HK-01", "[HK]", "(HK)"
+        if name_upper.startswith(code) or f' {code} ' in f' {name_upper} ' or f'-{code}' in name_upper:
+            return flag
+    return '🏳️'
+
+
 def fetch_subscription(url):
     """从 URL 获取订阅内容"""
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*'
+        })
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
             content = resp.read().decode('utf-8')
+            headers = resp.headers
+
+        # 解析流量和过期信息
+        info = {}
+        # 常见 header: subscription-userinfo
+        user_info = headers.get('subscription-userinfo', '')
+        if user_info:
+            # format: upload=0; download=123; total=456; expire=789
+            for item in user_info.split(';'):
+                if '=' in item:
+                    key, value = item.strip().split('=', 1)
+                    try:
+                        info[key] = int(value)
+                    except ValueError:
+                        pass
 
         # 尝试 base64 解码
         try:
@@ -23,7 +69,7 @@ def fetch_subscription(url):
         except Exception:
             pass
 
-        return {'success': True, 'content': content}
+        return {'success': True, 'content': content, 'info': info}
     except Exception as e:
         return {'success': False, 'message': str(e)}
 

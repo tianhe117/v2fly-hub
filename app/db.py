@@ -43,7 +43,11 @@ def init_db():
             url TEXT NOT NULL,
             filter_keywords TEXT DEFAULT '',
             exclude_keywords TEXT DEFAULT '',
-            updated_at TIMESTAMP
+            updated_at TIMESTAMP,
+            upload_bytes INTEGER DEFAULT 0,
+            download_bytes INTEGER DEFAULT 0,
+            total_bytes INTEGER DEFAULT 0,
+            expire_at INTEGER DEFAULT 0
         )
     ''')
     conn.execute('''
@@ -174,6 +178,29 @@ def set_subscription_updated(sub_id):
     conn = get_db()
     from datetime import datetime
     conn.execute('UPDATE subscriptions SET updated_at = ? WHERE id = ?', (datetime.now().isoformat(), sub_id))
+    conn.commit()
+    conn.close()
+
+
+def update_subscription_traffic(sub_id, info):
+    """更新订阅流量信息"""
+    if not info:
+        return
+    conn = get_db()
+    conn.execute('''
+        UPDATE subscriptions SET
+            upload_bytes = ?,
+            download_bytes = ?,
+            total_bytes = ?,
+            expire_at = ?
+        WHERE id = ?
+    ''', (
+        info.get('upload', 0),
+        info.get('download', 0),
+        info.get('total', 0),
+        info.get('expire', 0),
+        sub_id
+    ))
     conn.commit()
     conn.close()
 

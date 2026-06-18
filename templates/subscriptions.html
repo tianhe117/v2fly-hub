@@ -122,6 +122,33 @@ function renderSubscriptions() {
             html += ' &middot; updated ' + sub.updated_at.replace('T', ' ').substring(0, 16);
         }
         html += '</span>';
+        // traffic info
+        if (sub.total_bytes > 0) {
+            var used = sub.upload_bytes + sub.download_bytes;
+            var remaining = sub.total_bytes - used;
+            html += '<br><span class="sub-meta">';
+            html += 'Traffic: ' + formatBytes(used) + ' / ' + formatBytes(sub.total_bytes);
+            html += ' &middot; Remaining: ' + formatBytes(remaining);
+            if (sub.expire_at > 0) {
+                var expireDate = new Date(sub.expire_at * 1000);
+                var now = new Date();
+                var daysLeft = Math.ceil((expireDate - now) / (1000 * 60 * 60 * 24));
+                html += ' &middot; Expires: ' + expireDate.toISOString().split('T')[0];
+                if (daysLeft > 0) {
+                    html += ' (' + daysLeft + ' days left)';
+                }
+            }
+            html += '</span>';
+        } else if (sub.expire_at > 0) {
+            var expireDate = new Date(sub.expire_at * 1000);
+            var now = new Date();
+            var daysLeft = Math.ceil((expireDate - now) / (1000 * 60 * 60 * 24));
+            html += '<br><span class="sub-meta">Expires: ' + expireDate.toISOString().split('T')[0];
+            if (daysLeft > 0) {
+                html += ' (' + daysLeft + ' days left)';
+            }
+            html += '</span>';
+        }
         html += '</div>';
         html += '<div>';
         html += '<button class="btn btn-sm" onclick="refreshSubscription(' + sub.id + ')">update</button> ';
@@ -329,6 +356,32 @@ function saveKeywords() {
             loadSubscriptions();
         }
     });
+}
+
+// format bytes
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    var k = 1024;
+    var sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// country flags
+var FLAGS = {
+    'HK': '🇭🇰', 'SG': '🇸🇬', 'JP': '🇯🇵', 'KR': '🇰🇷', 'TW': '🇹🇼',
+    'US': '🇺🇸', 'UK': '🇬🇧', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
+    'CA': '🇨🇦', 'AU': '🇦🇺', 'IN': '🇮🇳', 'NL': '🇳🇱', 'RU': '🇷🇺'
+};
+
+function getFlag(name) {
+    var upper = name.toUpperCase();
+    for (var code in FLAGS) {
+        if (upper.startsWith(code) || upper.includes('-' + code) || upper.includes(' ' + code + ' ') || upper.includes('[' + code + ']')) {
+            return FLAGS[code];
+        }
+    }
+    return '🏳️';
 }
 
 // escape html
