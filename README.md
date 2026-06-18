@@ -31,7 +31,8 @@ v2ray-webui/
 ├── bin/                # v2fly binary (gitignored)
 ├── config/             # v2fly runtime config (gitignored)
 ├── data/               # SQLite database (gitignored)
-├── DESIGN.md           # Design document
+├── docs/               # Documentation
+│   └── DESIGN.md       # Design document
 └── requirements.txt
 ```
 
