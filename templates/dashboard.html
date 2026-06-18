@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block title %}dashboard - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
 <span style="font-size:11px;color:#888;">Xray: <span style="color:#4caf50;">running</span> pid 12345</span>
@@ -120,7 +119,6 @@
 </div>
 {% endblock %}
 
-{% block statusbar_left %}<span class="status-dot ok"></span>Xray running{% endblock %}
 {% block statusbar_right %}3 services active &middot; last check: 10s ago{% endblock %}
 
 {% block modals %}

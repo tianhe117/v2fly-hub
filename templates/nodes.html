@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block title %}nodes - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
 <button class="btn btn-sm" onclick="openAddNodeModal()">+ add node</button>
@@ -34,7 +33,6 @@
 </div>
 {% endblock %}
 
-{% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
 {% block statusbar_right %}<span id="statusInfo">0 nodes</span>{% endblock %}
 
 {% block modals %}
@@ -56,7 +54,7 @@
         <div style="border-top:1px solid #e0e0e0;margin:12px 0;"></div>
 
         <!-- 基本信息 -->
-        <div class="field"><label>name</label><input class="input" id="nodeName" placeholder="HK-01"></div>
+        <div class="field"><label>name</label><input class="input" id="nodeName"></div>
         <div class="field">
             <label>protocol</label>
             <select class="input" id="nodeProtocol" onchange="updateConfigFields()">

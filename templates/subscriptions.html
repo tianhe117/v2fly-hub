@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block title %}subscriptions - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
 <button class="btn btn-sm" onclick="document.getElementById('addSubModal').classList.add('show')">+ add subscription</button>
@@ -25,7 +24,6 @@
 </div>
 {% endblock %}
 
-{% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
 {% block statusbar_right %}<span id="subCount">0 subscriptions</span> &middot; <span id="nodeCount">0 nodes</span>{% endblock %}
 
 {% block modals %}
@@ -33,7 +31,7 @@
 <div class="modal-overlay" id="addSubModal">
     <div class="modal">
         <div class="modal-title">add subscription</div>
-        <div class="field"><label>name</label><input class="input" id="subName" placeholder="airport-A"></div>
+        <div class="field"><label>name</label><input class="input" id="subName"></div>
         <div class="field"><label>url</label><input class="input" id="subUrl" placeholder="https://..."></div>
         <div class="modal-actions">
             <button class="btn" onclick="document.getElementById('addSubModal').classList.remove('show')">cancel</button>

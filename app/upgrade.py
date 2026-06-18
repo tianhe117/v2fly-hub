@@ -59,7 +59,7 @@ def check_update():
     try:
         req = urllib.request.Request(
             GITHUB_API,
-            headers={'User-Agent': 'Xray-hub'}
+            headers={'User-Agent': 'Xray-Hub'}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
@@ -209,7 +209,7 @@ def download_binary(progress_callback=None):
 
         req = urllib.request.Request(
             asset['url'],
-            headers={'User-Agent': 'Xray-hub'}
+            headers={'User-Agent': 'Xray-Hub'}
         )
 
         with urllib.request.urlopen(req, timeout=30) as resp:

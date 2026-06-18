@@ -14,7 +14,7 @@ import os
 app = Flask(__name__, template_folder='../templates')
 app.secret_key = os.urandom(24)
 
-APP_NAME = 'Xray-hub'
+APP_NAME = 'Xray-Hub'
 boot_time = datetime.now().strftime('%H:%M:%S')
 
 

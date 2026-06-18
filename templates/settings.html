@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block title %}settings - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
 <button class="btn btn-sm" onclick="prepareSave()">save</button>
@@ -120,8 +119,6 @@
 </div>
 {% endblock %}
 
-{% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
-
 {% block modals %}
 <!-- 保存确认弹窗 -->
 <div class="modal-overlay" id="saveModal">
@@ -217,13 +214,6 @@ function loadSystemInfo() {
             } else {
                 warning.style.display = 'none';
                 document.getElementById('checkUpdateBtn').disabled = false;
-            }
-
-            var statusDot = document.querySelector('.status-dot');
-            if (data.xray_status === 'running') {
-                statusDot.className = 'status-dot ok';
-            } else {
-                statusDot.className = 'status-dot error';
             }
         })
         .catch(err => addLog('error', '[system] info load failed: ' + err));
