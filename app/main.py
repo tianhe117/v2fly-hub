@@ -4,6 +4,7 @@ from functools import wraps
 from . import db
 from . import v2fly_manager
 from . import upgrade
+from . import subscription
 import json
 import hashlib
 import os
@@ -299,6 +300,112 @@ def format_size(size):
             return f'{size:.1f} {unit}'
         size /= 1024
     return f'{size:.1f} TB'
+
+
+# ========== 订阅 API ==========
+
+@app.route('/api/subscriptions', methods=['GET'])
+@auth_required
+def api_get_subscriptions():
+    """获取所有订阅"""
+    subs = db.get_all_subscriptions()
+    # 为每个订阅添加节点数量
+    for sub in subs:
+        nodes = db.get_nodes_by_sub(sub['id'])
+        sub['node_count'] = len(nodes)
+    return jsonify(subs)
+
+
+@app.route('/api/subscriptions', methods=['POST'])
+@auth_required
+def api_create_subscription():
+    """添加订阅"""
+    data = request.get_json()
+    if not data or not data.get('name') or not data.get('url'):
+        return jsonify({'success': False, 'message': 'name and url required'}), 400
+
+    sub_id = db.create_subscription(data['name'], data['url'])
+
+    # 自动刷新订阅
+    result = refresh_subscription(sub_id)
+
+    return jsonify({'success': True, 'id': sub_id, 'nodes': result.get('count', 0)})
+
+
+@app.route('/api/subscriptions/<int:sub_id>', methods=['PUT'])
+@auth_required
+def api_update_subscription(sub_id):
+    """更新订阅"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'no data'}), 400
+    db.update_subscription(sub_id, data)
+    return jsonify({'success': True})
+
+
+@app.route('/api/subscriptions/<int:sub_id>', methods=['DELETE'])
+@auth_required
+def api_delete_subscription(sub_id):
+    """删除订阅"""
+    db.delete_subscription(sub_id)
+    return jsonify({'success': True})
+
+
+@app.route('/api/subscriptions/<int:sub_id>/refresh', methods=['POST'])
+@auth_required
+def api_refresh_subscription(sub_id):
+    """刷新订阅"""
+    result = refresh_subscription(sub_id)
+    return jsonify(result)
+
+
+def refresh_subscription(sub_id):
+    """刷新订阅（获取并解析节点）"""
+    sub = db.get_subscription(sub_id)
+    if not sub:
+        return {'success': False, 'message': 'subscription not found'}
+
+    # 获取订阅内容
+    result = subscription.fetch_subscription(sub['url'])
+    if not result['success']:
+        return {'success': False, 'message': result['message']}
+
+    # 解析节点
+    nodes = subscription.parse_nodes(result['content'])
+
+    # 应用关键字筛选
+    filter_kws = [k.strip() for k in sub['filter_keywords'].split(',') if k.strip()]
+    exclude_kws = [k.strip() for k in sub['exclude_keywords'].split(',') if k.strip()]
+
+    if filter_kws:
+        nodes = [n for n in nodes if any(kw.lower() in n['name'].lower() for kw in filter_kws)]
+    if exclude_kws:
+        nodes = [n for n in nodes if not any(kw.lower() in n['name'].lower() for kw in exclude_kws)]
+
+    # 清空旧节点，添加新节点
+    db.clear_nodes_by_sub(sub_id)
+    db.add_nodes(sub_id, nodes)
+    db.set_subscription_updated(sub_id)
+
+    return {'success': True, 'count': len(nodes)}
+
+
+# ========== 节点 API ==========
+
+@app.route('/api/nodes', methods=['GET'])
+@auth_required
+def api_get_nodes():
+    """获取所有节点"""
+    nodes = db.get_all_nodes()
+    return jsonify(nodes)
+
+
+@app.route('/api/nodes/by-sub/<int:sub_id>', methods=['GET'])
+@auth_required
+def api_get_nodes_by_sub(sub_id):
+    """获取订阅下的节点"""
+    nodes = db.get_nodes_by_sub(sub_id)
+    return jsonify(nodes)
 
 
 if __name__ == '__main__':

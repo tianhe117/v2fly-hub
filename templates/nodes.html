@@ -18,22 +18,22 @@ tr.disabled { color: #bbb; }
 <div class="collapse-header" onclick="toggleGroup('g1')">
     <div><span class="arrow" id="g1-arrow">&#9660;</span> <span class="sub-name">airport-A</span> <span class="sub-count">8 nodes &middot; 5 enabled</span></div>
     <div>
-        <button class="btn-ghost btn-sm" onclick="event.stopPropagation(); checkGroup('g1')">check</button>
-        <button class="btn-ghost btn-sm" onclick="event.stopPropagation()">refresh</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation(); checkGroup('g1')">check</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation()">refresh</button>
     </div>
 </div>
 <div class="collapse-body show" id="g1-body">
     <table>
         <thead><tr><th>name</th><th>proto</th><th>address</th><th>tcp</th><th>curl</th><th>status</th><th></th></tr></thead>
         <tbody>
-            <tr class="current"><td>HK-01 Premium</td><td><span class="tag">vmess</span></td><td>hk1.example.com:443</td><td class="lat-ok">12ms</td><td class="lat-ok">86ms</td><td style="color:#4caf50;">[current]</td><td><button class="btn-ghost btn-sm" disabled>in use</button></td></tr>
-            <tr><td>HK-02 Standard</td><td><span class="tag">vmess</span></td><td>hk2.example.com:443</td><td class="lat-ok">15ms</td><td class="lat-ok">102ms</td><td>ok</td><td><button class="btn-ghost btn-sm">use</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
-            <tr><td>JP-01 Tokyo</td><td><span class="tag">ss</span></td><td>jp1.example.com:8388</td><td class="lat-ok">38ms</td><td class="lat-warn">156ms</td><td>ok</td><td><button class="btn-ghost btn-sm">use</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
-            <tr><td>JP-02 Osaka</td><td><span class="tag">vmess</span></td><td>jp2.example.com:443</td><td class="lat-ok">35ms</td><td class="lat-ok">138ms</td><td>ok</td><td><button class="btn-ghost btn-sm">use</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
-            <tr><td>SG-01 Singapore</td><td><span class="tag">vmess</span></td><td>sg1.example.com:443</td><td class="lat-warn">68ms</td><td class="lat-warn">189ms</td><td>ok</td><td><button class="btn-ghost btn-sm">use</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
-            <tr class="disabled"><td>SG-02 Premium</td><td><span class="tag">vmess</span></td><td>sg2.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn-ghost btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn-ghost btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn-ghost btn-sm">enable</button></td></tr>
+            <tr class="current"><td>HK-01 Premium</td><td><span class="tag">vmess</span></td><td>hk1.example.com:443</td><td class="lat-ok">12ms</td><td class="lat-ok">86ms</td><td style="color:#4caf50;">[current]</td><td><button class="btn btn-sm" disabled>in use</button></td></tr>
+            <tr><td>HK-02 Standard</td><td><span class="tag">vmess</span></td><td>hk2.example.com:443</td><td class="lat-ok">15ms</td><td class="lat-ok">102ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
+            <tr><td>JP-01 Tokyo</td><td><span class="tag">ss</span></td><td>jp1.example.com:8388</td><td class="lat-ok">38ms</td><td class="lat-warn">156ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
+            <tr><td>JP-02 Osaka</td><td><span class="tag">vmess</span></td><td>jp2.example.com:443</td><td class="lat-ok">35ms</td><td class="lat-ok">138ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
+            <tr><td>SG-01 Singapore</td><td><span class="tag">vmess</span></td><td>sg1.example.com:443</td><td class="lat-warn">68ms</td><td class="lat-warn">189ms</td><td>ok</td><td><button class="btn btn-sm">use</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
+            <tr class="disabled"><td>SG-02 Premium</td><td><span class="tag">vmess</span></td><td>sg2.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
+            <tr class="disabled"><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
+            <tr class="disabled"><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
         </tbody>
     </table>
 </div>
@@ -41,18 +41,18 @@ tr.disabled { color: #bbb; }
 <div class="collapse-header" onclick="toggleGroup('g2')">
     <div><span class="arrow" id="g2-arrow">&#9654;</span> <span class="sub-name">airport-B</span> <span class="sub-count">4 nodes &middot; 0 enabled</span></div>
     <div>
-        <button class="btn-ghost btn-sm" onclick="event.stopPropagation(); checkGroup('g2')">check</button>
-        <button class="btn-ghost btn-sm" onclick="event.stopPropagation()">refresh</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation(); checkGroup('g2')">check</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation()">refresh</button>
     </div>
 </div>
 <div class="collapse-body" id="g2-body">
     <table>
         <thead><tr><th>name</th><th>proto</th><th>address</th><th>tcp</th><th>curl</th><th>status</th><th></th></tr></thead>
         <tbody>
-            <tr class="disabled"><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn-ghost btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>US-02 San Jose</td><td><span class="tag">vmess</span></td><td>us2.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn-ghost btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>TW-01 Taipei</td><td><span class="tag">ss</span></td><td>tw1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn-ghost btn-sm">enable</button></td></tr>
-            <tr class="disabled"><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn-ghost btn-sm">enable</button></td></tr>
+            <tr class="disabled"><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
+            <tr class="disabled"><td>US-02 San Jose</td><td><span class="tag">vmess</span></td><td>us2.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
+            <tr class="disabled"><td>TW-01 Taipei</td><td><span class="tag">ss</span></td><td>tw1.example.com:8388</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
+            <tr class="disabled"><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td class="lat-pending">-</td><td class="lat-pending">-</td><td>disabled</td><td><button class="btn btn-sm">enable</button></td></tr>
         </tbody>
     </table>
 </div>

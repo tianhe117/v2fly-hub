@@ -29,7 +29,7 @@
             <span class="outbound-name">freedom-direct</span>
             <span class="outbound-meta"> &middot; <span class="tag">freedom</span></span>
         </div>
-        <div><button class="btn-ghost btn-sm">edit</button> <button class="btn-ghost btn-sm" style="color:#e53935;">del</button></div>
+        <div><button class="btn btn-sm">edit</button> <button class="btn btn-danger btn-sm">del</button></div>
     </div>
     <div class="outbound-body">all traffic goes direct. used for reverse proxy (home access).</div>
 </div>
@@ -40,7 +40,7 @@
             <span class="outbound-name">single-HK01</span>
             <span class="outbound-meta"> &middot; <span class="tag">single</span> vmess hk1.example.com:443</span>
         </div>
-        <div><button class="btn-ghost btn-sm">edit</button> <button class="btn-ghost btn-sm" style="color:#e53935;">del</button></div>
+        <div><button class="btn btn-sm">edit</button> <button class="btn btn-danger btn-sm">del</button></div>
     </div>
     <div class="outbound-body">fixed proxy through HK-01, no auto-switch.</div>
 </div>
@@ -51,17 +51,17 @@
             <span class="outbound-name">auto-switch-pool</span>
             <span class="outbound-meta"> &middot; <span class="tag">auto-switch</span> 5 nodes &middot; check: 60s</span>
         </div>
-        <div><button class="btn-ghost btn-sm">edit</button> <button class="btn-ghost btn-sm" style="color:#e53935;">del</button></div>
+        <div><button class="btn btn-sm">edit</button> <button class="btn btn-danger btn-sm">del</button></div>
     </div>
     <div class="outbound-body">
         <table class="node-table">
             <thead><tr><th>#</th><th>proto</th><th>name</th><th>latency</th><th></th></tr></thead>
             <tbody>
                 <tr><td>1</td><td><span class="tag">vmess</span></td><td>HK-01 Premium</td><td><span class="latency-ok">86ms</span></td><td><span class="cur">[current]</span></td></tr>
-                <tr><td>2</td><td><span class="tag">vmess</span></td><td>HK-02 Standard</td><td><span class="latency-ok">102ms</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
-                <tr><td>3</td><td><span class="tag">ss</span></td><td>JP-01 Tokyo</td><td><span class="latency-warn">156ms</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
-                <tr><td>4</td><td><span class="tag">vmess</span></td><td>SG-01 Singapore</td><td><span class="latency-warn">189ms</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
-                <tr><td>5</td><td><span class="tag">ss</span></td><td>US-01 LA</td><td><span class="latency-bad">timeout</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
+                <tr><td>2</td><td><span class="tag">vmess</span></td><td>HK-02 Standard</td><td><span class="latency-ok">102ms</span></td><td><button class="btn btn-sm">up</button> <button class="btn btn-sm">down</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
+                <tr><td>3</td><td><span class="tag">ss</span></td><td>JP-01 Tokyo</td><td><span class="latency-warn">156ms</span></td><td><button class="btn btn-sm">up</button> <button class="btn btn-sm">down</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
+                <tr><td>4</td><td><span class="tag">vmess</span></td><td>SG-01 Singapore</td><td><span class="latency-warn">189ms</span></td><td><button class="btn btn-sm">up</button> <button class="btn btn-sm">down</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
+                <tr><td>5</td><td><span class="tag">ss</span></td><td>US-01 LA</td><td><span class="latency-bad">timeout</span></td><td><button class="btn btn-sm">up</button> <button class="btn btn-sm">down</button> <button class="btn btn-danger btn-sm">x</button></td></tr>
             </tbody>
         </table>
         <div style="margin-top:8px;"><button class="btn btn-sm">+ add node</button></div>
@@ -95,7 +95,7 @@
         </div>
         <div class="modal-actions">
             <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
-            <button class="btn btn-primary">create</button>
+            <button class="btn btn-sm">create</button>
         </div>
     </div>
 </div>

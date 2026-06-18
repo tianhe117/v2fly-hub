@@ -16,146 +16,329 @@
 .kw-label { font-size: 11px; color: #888; width: 50px; flex-shrink: 0; }
 .kw-values { color: #333; }
 .kw-empty { color: #bbb; font-style: italic; }
+.empty-state { text-align: center; padding: 40px; color: #888; }
 {% endblock %}
 
 {% block content %}
-<div class="sub-card">
-    <div class="sub-header">
-        <div>
-            <span class="sub-name">airport-A</span>
-            <span class="sub-meta"> 8 nodes &middot; updated 2024-01-15 10:30</span>
-        </div>
-        <div>
-            <button class="btn-ghost btn-sm">refresh</button>
-            <button class="btn-ghost btn-sm">edit</button>
-            <button class="btn-ghost btn-sm" style="color:#e53935;">del</button>
-        </div>
-    </div>
-    <div class="sub-body">
-        <div class="kw-line" onclick="openKeywords('filter', 1)">
-            <span class="kw-label">filter:</span>
-            <span class="kw-values">HK, JP, Premium</span>
-        </div>
-        <div class="kw-line" onclick="openKeywords('exclude', 1)">
-            <span class="kw-label">exclude:</span>
-            <span class="kw-values">trial, expired</span>
-        </div>
-        <div style="margin-top:12px;">
-            <table>
-                <thead><tr><th>name</th><th>proto</th><th>address</th><th>in pool</th><th></th></tr></thead>
-                <tbody>
-                    <tr><td>HK-01 Premium</td><td><span class="tag">vmess</span></td><td>hk1.example.com:443</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
-                    <tr><td>HK-02 Standard</td><td><span class="tag">vmess</span></td><td>hk2.example.com:443</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
-                    <tr><td>JP-01 Tokyo</td><td><span class="tag">ss</span></td><td>jp1.example.com:8388</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
-                    <tr><td>JP-02 Osaka</td><td><span class="tag">vmess</span></td><td>jp2.example.com:443</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
-                    <tr><td>SG-01 Singapore</td><td><span class="tag">vmess</span></td><td>sg1.example.com:443</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div style="font-size:11px;color:#888;margin-top:6px;">3 nodes filtered out by exclude keywords</div>
-    </div>
-</div>
-
-<div class="sub-card">
-    <div class="sub-header">
-        <div>
-            <span class="sub-name">airport-B</span>
-            <span class="sub-meta"> 4 nodes &middot; updated 2024-01-14 18:00</span>
-        </div>
-        <div>
-            <button class="btn-ghost btn-sm">refresh</button>
-            <button class="btn-ghost btn-sm">edit</button>
-            <button class="btn-ghost btn-sm" style="color:#e53935;">del</button>
-        </div>
-    </div>
-    <div class="sub-body">
-        <div class="kw-line" onclick="openKeywords('filter', 2)">
-            <span class="kw-label">filter:</span>
-            <span class="kw-empty">click to set filter keywords</span>
-        </div>
-        <div class="kw-line" onclick="openKeywords('exclude', 2)">
-            <span class="kw-label">exclude:</span>
-            <span class="kw-empty">click to set exclude keywords</span>
-        </div>
-        <div style="margin-top:12px;">
-            <table>
-                <thead><tr><th>name</th><th>proto</th><th>address</th><th>in pool</th><th></th></tr></thead>
-                <tbody>
-                    <tr><td>US-01 LA</td><td><span class="tag">ss</span></td><td>us1.example.com:8388</td><td style="color:#4caf50;">yes</td><td><button class="btn-ghost btn-sm">remove</button></td></tr>
-                    <tr><td>US-02 San Jose</td><td><span class="tag">vmess</span></td><td>us2.example.com:443</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
-                    <tr><td>TW-01 Taipei</td><td><span class="tag">ss</span></td><td>tw1.example.com:8388</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
-                    <tr><td>KR-01 Seoul</td><td><span class="tag">vmess</span></td><td>kr1.example.com:443</td><td style="color:#888;">no</td><td><button class="btn-ghost btn-sm">add</button></td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+<div id="subList">
+    <div class="empty-state">loading...</div>
 </div>
 {% endblock %}
 
 {% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
-{% block statusbar_right %}2 subscriptions &middot; 12 nodes total{% endblock %}
+{% block statusbar_right %}<span id="subCount">0 subscriptions</span> &middot; <span id="nodeCount">0 nodes</span>{% endblock %}
 
 {% block modals %}
+<!-- add subscription -->
 <div class="modal-overlay" id="addSubModal">
     <div class="modal">
         <div class="modal-title">add subscription</div>
-        <div class="field"><label>name</label><input class="input" placeholder="airport-A"></div>
-        <div class="field"><label>url</label><input class="input" placeholder="https://..."></div>
+        <div class="field"><label>name</label><input class="input" id="subName" placeholder="airport-A"></div>
+        <div class="field"><label>url</label><input class="input" id="subUrl" placeholder="https://..."></div>
         <div class="modal-actions">
-            <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
-            <button class="btn btn-primary">add</button>
+            <button class="btn" onclick="document.getElementById('addSubModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-sm" onclick="addSubscription()">add</button>
         </div>
     </div>
 </div>
+
+<!-- edit subscription -->
+<div class="modal-overlay" id="editSubModal">
+    <div class="modal">
+        <div class="modal-title">edit subscription</div>
+        <div class="field"><label>name</label><input class="input" id="editSubName"></div>
+        <div class="field"><label>url</label><input class="input" id="editSubUrl"></div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('editSubModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-sm" onclick="saveSubscription()">save</button>
+        </div>
+    </div>
+</div>
+
+<!-- edit keywords -->
 <div class="modal-overlay" id="kwModal">
     <div class="modal">
         <div class="modal-title" id="kwTitle">edit filter</div>
         <div class="field">
             <label id="kwLabel">one keyword per line</label>
-            <textarea class="input" id="kwTextarea" rows="8" placeholder="HK&#10;JP&#10;Premium"></textarea>
+            <textarea class="input" id="kwTextarea" rows="8" placeholder="one keyword per line"></textarea>
         </div>
         <div class="modal-actions">
             <button class="btn" onclick="document.getElementById('kwModal').classList.remove('show')">cancel</button>
-            <button class="btn btn-primary" onclick="saveKeywords()">save</button>
+            <button class="btn btn-sm" onclick="saveKeywords()">save</button>
+        </div>
+    </div>
+</div>
+
+<!-- confirm delete -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <div class="modal-title">confirm delete</div>
+        <div id="deleteMessage">Are you sure?</div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('deleteModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-danger btn-sm" id="deleteConfirmBtn">delete</button>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-var subKeywords = {
-    1: { filter: ['HK', 'JP', 'Premium'], exclude: ['trial', 'expired'] },
-    2: { filter: [], exclude: [] }
-};
+var subscriptions = [];
+var currentEditSubId = 0;
 var currentKw = { type: '', subId: 0 };
 
+// load subscriptions
+function loadSubscriptions() {
+    fetch('/api/subscriptions')
+        .then(r => r.json())
+        .then(data => {
+            subscriptions = data;
+            renderSubscriptions();
+            updateCounts();
+        })
+        .catch(err => {
+            document.getElementById('subList').innerHTML = '<div class="empty-state">load failed: ' + err + '</div>';
+        });
+}
+
+// render subscriptions
+function renderSubscriptions() {
+    var container = document.getElementById('subList');
+
+    if (subscriptions.length === 0) {
+        container.innerHTML = '<div class="empty-state">no subscriptions yet</div>';
+        return;
+    }
+
+    var html = '';
+    subscriptions.forEach(function(sub) {
+        html += '<div class="sub-card" id="sub-' + sub.id + '">';
+        html += '<div class="sub-header">';
+        html += '<div>';
+        html += '<span class="sub-name">' + escapeHtml(sub.name) + '</span>';
+        html += '<span class="sub-meta"> ' + sub.node_count + ' nodes';
+        if (sub.updated_at) {
+            html += ' &middot; updated ' + sub.updated_at.replace('T', ' ').substring(0, 16);
+        }
+        html += '</span>';
+        html += '</div>';
+        html += '<div>';
+        html += '<button class="btn btn-sm" onclick="refreshSubscription(' + sub.id + ')">update</button> ';
+        html += '<button class="btn btn-sm" onclick="editSubscription(' + sub.id + ')">edit</button> ';
+        html += '<button class="btn btn-danger btn-sm" onclick="deleteSubscription(' + sub.id + ')">del</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="sub-body" id="sub-body-' + sub.id + '">loading...</div>';
+        html += '</div>';
+    });
+
+    container.innerHTML = html;
+
+    // load nodes for each subscription
+    subscriptions.forEach(function(sub) {
+        loadNodes(sub.id);
+    });
+}
+
+// load nodes
+function loadNodes(subId) {
+    fetch('/api/nodes/by-sub/' + subId)
+        .then(r => r.json())
+        .then(nodes => {
+            renderNodes(subId, nodes);
+        });
+}
+
+// render nodes
+function renderNodes(subId, nodes) {
+    var container = document.getElementById('sub-body-' + subId);
+    var sub = subscriptions.find(s => s.id === subId);
+
+    var html = '';
+    html += '<div class="kw-line" onclick="openKeywords(\'filter\', ' + subId + ')">';
+    html += '<span class="kw-label">filter:</span>';
+    if (sub.filter_keywords) {
+        html += '<span class="kw-values">' + escapeHtml(sub.filter_keywords) + '</span>';
+    } else {
+        html += '<span class="kw-empty">click to set filter keywords</span>';
+    }
+    html += '</div>';
+    html += '<div class="kw-line" onclick="openKeywords(\'exclude\', ' + subId + ')">';
+    html += '<span class="kw-label">exclude:</span>';
+    if (sub.exclude_keywords) {
+        html += '<span class="kw-values">' + escapeHtml(sub.exclude_keywords) + '</span>';
+    } else {
+        html += '<span class="kw-empty">click to set exclude keywords</span>';
+    }
+    html += '</div>';
+
+    if (nodes.length > 0) {
+        html += '<div style="margin-top:12px;">';
+        html += '<table>';
+        html += '<thead><tr><th>name</th><th>proto</th><th>address</th></tr></thead>';
+        html += '<tbody>';
+        nodes.forEach(function(node) {
+            html += '<tr>';
+            html += '<td>' + escapeHtml(node.name) + '</td>';
+            html += '<td><span class="tag">' + node.protocol + '</span></td>';
+            html += '<td>' + escapeHtml(node.address) + ':' + node.port + '</td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        html += '</div>';
+    } else {
+        html += '<div style="margin-top:12px;color:#888;font-size:12px;">no nodes</div>';
+    }
+
+    container.innerHTML = html;
+}
+
+// update counts
+function updateCounts() {
+    document.getElementById('subCount').textContent = subscriptions.length + ' subscriptions';
+    var totalNodes = subscriptions.reduce((sum, sub) => sum + sub.node_count, 0);
+    document.getElementById('nodeCount').textContent = totalNodes + ' nodes total';
+}
+
+// add subscription
+function addSubscription() {
+    var name = document.getElementById('subName').value.trim();
+    var url = document.getElementById('subUrl').value.trim();
+
+    if (!name || !url) {
+        addLog('error', '[subscription] name and url required');
+        return;
+    }
+
+    fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name, url: url})
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            document.getElementById('addSubModal').classList.remove('show');
+            document.getElementById('subName').value = '';
+            document.getElementById('subUrl').value = '';
+            addLog('ok', '[subscription] added ' + name + ' (' + result.nodes + ' nodes)');
+            loadSubscriptions();
+        } else {
+            addLog('error', '[subscription] ' + result.message);
+        }
+    })
+    .catch(err => addLog('error', '[subscription] ' + err));
+}
+
+// refresh subscription
+function refreshSubscription(subId) {
+    addLog('info', '[subscription] refreshing...');
+    fetch('/api/subscriptions/' + subId + '/refresh', {method: 'POST'})
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                addLog('ok', '[subscription] updated (' + result.count + ' nodes)');
+                loadSubscriptions();
+            } else {
+                addLog('error', '[subscription] ' + result.message);
+            }
+        })
+        .catch(err => addLog('error', '[subscription] ' + err));
+}
+
+// edit subscription
+function editSubscription(subId) {
+    currentEditSubId = subId;
+    var sub = subscriptions.find(s => s.id === subId);
+    document.getElementById('editSubName').value = sub.name;
+    document.getElementById('editSubUrl').value = sub.url;
+    document.getElementById('editSubModal').classList.add('show');
+}
+
+function saveSubscription() {
+    var name = document.getElementById('editSubName').value.trim();
+    var url = document.getElementById('editSubUrl').value.trim();
+
+    if (!name || !url) {
+        addLog('error', '[subscription] name and url required');
+        return;
+    }
+
+    fetch('/api/subscriptions/' + currentEditSubId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name, url: url})
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            document.getElementById('editSubModal').classList.remove('show');
+            addLog('ok', '[subscription] updated');
+            loadSubscriptions();
+        }
+    });
+}
+
+// delete subscription
+function deleteSubscription(subId) {
+    var sub = subscriptions.find(s => s.id === subId);
+    document.getElementById('deleteMessage').textContent = 'Delete subscription "' + sub.name + '"?';
+    document.getElementById('deleteConfirmBtn').onclick = function() {
+        document.getElementById('deleteModal').classList.remove('show');
+        fetch('/api/subscriptions/' + subId, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    addLog('ok', '[subscription] deleted');
+                    loadSubscriptions();
+                }
+            });
+    };
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+// edit keywords
 function openKeywords(type, subId) {
     currentKw = { type: type, subId: subId };
     document.getElementById('kwTitle').textContent = 'edit ' + type;
     document.getElementById('kwLabel').textContent = type + ' keywords (one per line)';
-    var kws = subKeywords[subId][type];
-    document.getElementById('kwTextarea').value = kws.length ? kws.join('\n') : '';
+
+    var sub = subscriptions.find(s => s.id === subId);
+    var keywords = type === 'filter' ? sub.filter_keywords : sub.exclude_keywords;
+    document.getElementById('kwTextarea').value = keywords || '';
     document.getElementById('kwModal').classList.add('show');
 }
 
 function saveKeywords() {
     var raw = document.getElementById('kwTextarea').value.trim();
-    var kws = raw ? raw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean) : [];
-    subKeywords[currentKw.subId][currentKw.type] = kws;
-    document.getElementById('kwModal').classList.remove('show');
-    renderKeywords(currentKw.subId);
+
+    var data = {};
+    data[currentKw.type + '_keywords'] = raw;
+
+    fetch('/api/subscriptions/' + currentKw.subId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            document.getElementById('kwModal').classList.remove('show');
+            addLog('ok', '[subscription] keywords updated');
+            loadSubscriptions();
+        }
+    });
 }
 
-function renderKeywords(subId) {
-    var card = document.querySelectorAll('.sub-card')[subId - 1];
-    var lines = card.querySelectorAll('.kw-line');
-    var fk = subKeywords[subId].filter;
-    lines[0].querySelector('.kw-values, .kw-empty').outerHTML = fk.length
-        ? '<span class="kw-values">' + fk.join(', ') + '</span>'
-        : '<span class="kw-empty">click to set filter keywords</span>';
-    var ek = subKeywords[subId].exclude;
-    lines[1].querySelector('.kw-values, .kw-empty').outerHTML = ek.length
-        ? '<span class="kw-values">' + ek.join(', ') + '</span>'
-        : '<span class="kw-empty">click to set exclude keywords</span>';
+// escape html
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
+
+// init
+loadSubscriptions();
 {% endblock %}
