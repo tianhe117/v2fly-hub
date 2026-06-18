@@ -11,9 +11,10 @@
 .outbound-name { font-weight: bold; }
 .outbound-meta { font-size: 11px; color: #888; }
 .outbound-body { padding: 12px; }
-.node-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
-.node-row .prio { width: 20px; color: #888; text-align: right; }
-.node-row .cur { color: #4caf50; font-size: 11px; }
+.node-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.node-table th { text-align: left; padding: 2px 12px 2px 0; color: #888; font-weight: normal; border-bottom: 1px solid #e0e0e0; }
+.node-table td { padding: 4px 12px 4px 0; border-bottom: 1px solid #f0f0f0; }
+.node-table .cur { color: #4caf50; font-size: 11px; }
 .latency-ok { color: #4caf50; }
 .latency-bad { color: #e53935; }
 .latency-warn { color: #ffa726; }
@@ -53,12 +54,16 @@
         <div><button class="btn-ghost btn-sm">edit</button> <button class="btn-ghost btn-sm" style="color:#e53935;">del</button></div>
     </div>
     <div class="outbound-body">
-        <div style="font-size:11px;color:#888;margin-bottom:6px;">node priority (top = highest):</div>
-        <div class="node-row"><span class="prio">1.</span> <span class="tag">vmess</span> HK-01 Premium <span class="latency-ok">86ms</span> <span class="cur">[current]</span></div>
-        <div class="node-row"><span class="prio">2.</span> <span class="tag">vmess</span> HK-02 Standard <span class="latency-ok">102ms</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
-        <div class="node-row"><span class="prio">3.</span> <span class="tag">ss</span> JP-01 Tokyo <span class="latency-warn">156ms</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
-        <div class="node-row"><span class="prio">4.</span> <span class="tag">vmess</span> SG-01 Singapore <span class="latency-warn">189ms</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
-        <div class="node-row"><span class="prio">5.</span> <span class="tag">ss</span> US-01 LA <span class="latency-bad">timeout</span> <button class="btn-ghost btn-sm">up</button><button class="btn-ghost btn-sm">down</button><button class="btn-ghost btn-sm" style="color:#e53935;">x</button></div>
+        <table class="node-table">
+            <thead><tr><th>#</th><th>proto</th><th>name</th><th>latency</th><th></th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td><span class="tag">vmess</span></td><td>HK-01 Premium</td><td><span class="latency-ok">86ms</span></td><td><span class="cur">[current]</span></td></tr>
+                <tr><td>2</td><td><span class="tag">vmess</span></td><td>HK-02 Standard</td><td><span class="latency-ok">102ms</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
+                <tr><td>3</td><td><span class="tag">ss</span></td><td>JP-01 Tokyo</td><td><span class="latency-warn">156ms</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
+                <tr><td>4</td><td><span class="tag">vmess</span></td><td>SG-01 Singapore</td><td><span class="latency-warn">189ms</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
+                <tr><td>5</td><td><span class="tag">ss</span></td><td>US-01 LA</td><td><span class="latency-bad">timeout</span></td><td><button class="btn-ghost btn-sm">up</button> <button class="btn-ghost btn-sm">down</button> <button class="btn-ghost btn-sm" style="color:#e53935;">x</button></td></tr>
+            </tbody>
+        </table>
         <div style="margin-top:8px;"><button class="btn btn-sm">+ add node</button></div>
     </div>
 </div>
