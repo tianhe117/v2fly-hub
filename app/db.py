@@ -272,6 +272,17 @@ def update_node_latency(node_id, tcp_latency, curl_latency):
     conn.close()
 
 
+def update_node(node_id, name, protocol, address, port, config_json):
+    """更新节点信息"""
+    conn = get_db()
+    conn.execute(
+        'UPDATE nodes SET name = ?, protocol = ?, address = ?, port = ?, config_json = ? WHERE id = ?',
+        (name, protocol, address, port, config_json, node_id)
+    )
+    conn.commit()
+    conn.close()
+
+
 def get_nodes_grouped():
     """获取按订阅分组的节点（包括用户自定义节点）"""
     conn = get_db()

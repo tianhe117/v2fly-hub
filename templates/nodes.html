@@ -16,15 +16,15 @@
 .group-name { font-weight: bold; }
 .group-count { font-size: 12px; color: #888; margin-left: 8px; }
 .group-actions { display: flex; gap: 4px; }
-.node-row { display: flex; align-items: center; padding: 6px 12px; border: 1px solid #e0e0e0; border-top: none; background: #fff; font-size: 13px; }
+.node-row { display: flex; align-items: center; padding: 6px 12px; border: 1px solid #e0e0e0; border-top: none; background: #fff; font-size: 13px; gap: 8px; }
 .node-row:last-child { border-radius: 0 0 3px 3px; margin-bottom: 12px; }
 .node-name { flex: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.node-proto { width: 60px; }
+.node-proto { flex: 0 0 80px; min-width: 80px; }
 .node-addr { flex: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #666; }
-.node-tcp { width: 80px; text-align: right; }
-.node-curl { width: 80px; text-align: right; }
-.node-actions { width: 60px; text-align: right; }
-.tag { display: inline-block; padding: 1px 6px; background: #e8e8e8; border-radius: 2px; font-size: 11px; }
+.node-tcp { flex: 0 0 70px; text-align: right; }
+.node-curl { flex: 0 0 70px; text-align: right; }
+.node-actions { flex: 0 0 150px; display: flex; gap: 4px; justify-content: flex-end; }
+.tag { display: inline-block; padding: 1px 6px; background: #e8e8e8; border-radius: 2px; font-size: 11px; white-space: nowrap; }
 .checking { opacity: 0.5; }
 {% endblock %}
 
@@ -40,25 +40,187 @@
 {% block modals %}
 <!-- add node -->
 <div class="modal-overlay" id="addNodeModal">
-    <div class="modal">
+    <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto;">
         <div class="modal-title">add node</div>
+
+        <!-- URL 解析 -->
+        <div class="field">
+            <label>import from URL</label>
+            <div style="display:flex;gap:8px;">
+                <input class="input" id="nodeUrl" placeholder="vmess:// vless:// ss:// trojan:// hy2://" style="flex:1;">
+                <button class="btn btn-sm" onclick="parseNodeUrl()">parse</button>
+            </div>
+            <div style="font-size:11px;color:#888;margin-top:4px;">Paste link to auto-fill, then review and click add</div>
+        </div>
+
+        <div style="border-top:1px solid #e0e0e0;margin:12px 0;"></div>
+
+        <!-- 基本信息 -->
         <div class="field"><label>name</label><input class="input" id="nodeName" placeholder="HK-01"></div>
         <div class="field">
             <label>protocol</label>
             <select class="input" id="nodeProtocol" onchange="updateConfigFields()">
-                <option value="ss">Shadowsocks</option>
                 <option value="vmess">VMess</option>
+                <option value="vless">VLESS</option>
+                <option value="ss">Shadowsocks</option>
+                <option value="trojan">Trojan</option>
+                <option value="hysteria2">Hysteria2</option>
             </select>
         </div>
         <div class="field"><label>address</label><input class="input" id="nodeAddr" placeholder="server.example.com"></div>
         <div class="field"><label>port</label><input class="input" id="nodePort" type="number" placeholder="443"></div>
-        <div id="configFields">
-            <div class="field"><label>method</label><input class="input" id="ssMethod" placeholder="aes-256-gcm"></div>
-            <div class="field"><label>password</label><input class="input" id="ssPassword" placeholder="password"></div>
+
+        <!-- VMess 配置 -->
+        <div id="vmessFields">
+            <div class="field"><label>uuid</label><input class="input" id="vmessUuid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
+            <div class="field"><label>alterId</label><input class="input" id="vmessAid" type="number" value="0"></div>
+            <div class="field">
+                <label>security</label>
+                <select class="input" id="vmessSecurity">
+                    <option value="auto">auto</option>
+                    <option value="aes-128-gcm">aes-128-gcm</option>
+                    <option value="chacha20-ietf-poly1305">chacha20-ietf-poly1305</option>
+                    <option value="none">none</option>
+                </select>
+            </div>
         </div>
+
+        <!-- VLESS 配置 -->
+        <div id="vlessFields" style="display:none;">
+            <div class="field"><label>uuid</label><input class="input" id="vlessUuid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
+            <div class="field">
+                <label>flow</label>
+                <select class="input" id="vlessFlow">
+                    <option value="">none</option>
+                    <option value="xtls-rprx-vision">xtls-rprx-vision</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>encryption</label>
+                <select class="input" id="vlessEncryption">
+                    <option value="none">none</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- SS 配置 -->
+        <div id="ssFields" style="display:none;">
+            <div class="field">
+                <label>method</label>
+                <select class="input" id="ssMethod">
+                    <option value="aes-256-gcm">aes-256-gcm</option>
+                    <option value="aes-128-gcm">aes-128-gcm</option>
+                    <option value="chacha20-ietf-poly1305">chacha20-ietf-poly1305</option>
+                    <option value="xchacha20-ietf-poly1305">xchacha20-ietf-poly1305</option>
+                    <option value="2022-blake3-aes-128-gcm">2022-blake3-aes-128-gcm</option>
+                    <option value="2022-blake3-aes-256-gcm">2022-blake3-aes-256-gcm</option>
+                    <option value="2022-blake3-chacha20-poly1305">2022-blake3-chacha20-poly1305</option>
+                </select>
+            </div>
+            <div class="field"><label>password</label><input class="input" id="ssPassword" placeholder="password"></div>
+            <div class="field">
+                <label>plugin</label>
+                <select class="input" id="ssPlugin" onchange="updatePluginOpts()">
+                    <option value="">none</option>
+                    <option value="obfs-local">obfs-local</option>
+                    <option value="v2ray-plugin">v2ray-plugin</option>
+                </select>
+            </div>
+            <div id="ssPluginOpts" style="display:none;">
+                <div class="field"><label>plugin opts</label><input class="input" id="ssPluginOptsInput" placeholder="obfs=http;obfs-host=example.com"></div>
+            </div>
+        </div>
+
+        <!-- Trojan 配置 -->
+        <div id="trojanFields" style="display:none;">
+            <div class="field"><label>password</label><input class="input" id="trojanPassword" placeholder="password"></div>
+            <div class="field"><label>alpn</label><input class="input" id="trojanAlpn" placeholder="h2,http/1.1"></div>
+        </div>
+
+        <!-- Hysteria2 配置 -->
+        <div id="hy2Fields" style="display:none;">
+            <div class="field"><label>password</label><input class="input" id="hy2Password" placeholder="password"></div>
+            <div class="field">
+                <label>obfs</label>
+                <select class="input" id="hy2Obfs" onchange="updateHy2Obfs()">
+                    <option value="">none</option>
+                    <option value="salamander">salamander</option>
+                </select>
+            </div>
+            <div id="hy2ObfsOpts" style="display:none;">
+                <div class="field"><label>obfs password</label><input class="input" id="hy2ObfsPassword" placeholder="obfs-password"></div>
+            </div>
+            <div class="field"><label>up Mbps</label><input class="input" id="hy2UpMbps" type="number" placeholder="100"></div>
+            <div class="field"><label>down Mbps</label><input class="input" id="hy2DownMbps" type="number" placeholder="100"></div>
+        </div>
+
+        <!-- 通用传输层配置 (vmess/vless/trojan) -->
+        <div id="transportFields">
+            <div style="border-top:1px solid #e0e0e0;margin:12px 0;"></div>
+            <div class="field">
+                <label>network</label>
+                <select class="input" id="nodeNetwork" onchange="updateNetworkOpts()">
+                    <option value="tcp">tcp</option>
+                    <option value="ws">ws</option>
+                    <option value="h2">h2</option>
+                    <option value="grpc">grpc</option>
+                </select>
+            </div>
+            <div id="wsOpts" style="display:none;">
+                <div class="field"><label>ws host</label><input class="input" id="wsHost" placeholder="example.com"></div>
+                <div class="field"><label>ws path</label><input class="input" id="wsPath" placeholder="/path"></div>
+            </div>
+            <div id="h2Opts" style="display:none;">
+                <div class="field"><label>h2 host</label><input class="input" id="h2Host" placeholder="example.com"></div>
+                <div class="field"><label>h2 path</label><input class="input" id="h2Path" placeholder="/path"></div>
+            </div>
+            <div id="grpcOpts" style="display:none;">
+                <div class="field"><label>grpc serviceName</label><input class="input" id="grpcService" placeholder="grpc-service"></div>
+            </div>
+        </div>
+
+        <!-- 通用 TLS 配置 -->
+        <div id="tlsFields">
+            <div style="border-top:1px solid #e0e0e0;margin:12px 0;"></div>
+            <div class="field">
+                <label>tls</label>
+                <select class="input" id="nodeTls" onchange="updateTlsOpts()">
+                    <option value="0">off</option>
+                    <option value="1">on</option>
+                </select>
+            </div>
+            <div id="tlsOpts" style="display:none;">
+                <div class="field"><label>sni</label><input class="input" id="nodeSni" placeholder="example.com"></div>
+                <div class="field"><label>alpn</label><input class="input" id="nodeAlpn" placeholder="h2,http/1.1"></div>
+                <div class="field">
+                    <label>allowInsecure</label>
+                    <select class="input" id="nodeAllowInsecure">
+                        <option value="0">no</option>
+                        <option value="1">yes</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>fingerprint</label>
+                    <input class="input" id="nodeFingerprint" placeholder="chrome, firefox, etc.">
+                </div>
+            </div>
+        </div>
+
         <div class="modal-actions">
             <button class="btn" onclick="document.getElementById('addNodeModal').classList.remove('show')">cancel</button>
             <button class="btn btn-sm" onclick="addNode()">add</button>
+        </div>
+    </div>
+</div>
+
+<!-- confirm delete -->
+<div class="modal-overlay" id="deleteNodeModal">
+    <div class="modal">
+        <div class="modal-title">confirm delete</div>
+        <div id="deleteNodeMessage">Are you sure?</div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('deleteNodeModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-danger btn-sm" id="deleteNodeConfirmBtn">delete</button>
         </div>
     </div>
 </div>
@@ -107,6 +269,15 @@ function renderGroups() {
         if (nodes.length === 0) {
             html += '<div class="node-row" style="color:#888;font-size:12px;">no nodes</div>';
         } else {
+            // 表头
+            html += '<div class="node-row" style="background:#f9f9f9;font-weight:bold;font-size:12px;color:#666;">';
+            html += '<div class="node-name">name</div>';
+            html += '<div class="node-proto">proto</div>';
+            html += '<div class="node-addr">address</div>';
+            html += '<div class="node-tcp" style="text-align:right;">tcp</div>';
+            html += '<div class="node-curl" style="text-align:right;">curl</div>';
+            html += '<div class="node-actions"></div>';
+            html += '</div>';
             nodes.forEach(function(node) {
                 html += '<div class="node-row" id="node-' + node.id + '">';
                 html += '<div class="node-name">' + escapeHtml(node.name) + '</div>';
@@ -114,7 +285,11 @@ function renderGroups() {
                 html += '<div class="node-addr">' + escapeHtml(node.address) + ':' + node.port + '</div>';
                 html += '<div class="node-tcp ' + getLatClass(node.tcp_latency) + '">' + formatLat(node.tcp_latency) + '</div>';
                 html += '<div class="node-curl ' + getLatClass(node.curl_latency) + '">' + formatLat(node.curl_latency) + '</div>';
-                html += '<div class="node-actions"><button class="btn btn-sm" onclick="checkNode(' + node.id + ')">check</button></div>';
+                html += '<div class="node-actions">';
+                html += '<button class="btn btn-sm" onclick="checkNode(' + node.id + ')">check</button>';
+                html += '<button class="btn btn-sm" onclick="editNode(' + node.id + ')">edit</button>';
+                html += '<button class="btn btn-danger btn-sm" onclick="deleteNode(' + node.id + ')">del</button>';
+                html += '</div>';
                 html += '</div>';
             });
         }
@@ -266,23 +441,598 @@ function updateNodeLat(nodeId, tcp, curl) {
 
 // add node modal
 function openAddNodeModal() {
+    document.getElementById('nodeUrl').value = '';
     document.getElementById('nodeName').value = '';
+    document.getElementById('nodeProtocol').value = 'vmess';
     document.getElementById('nodeAddr').value = '';
     document.getElementById('nodePort').value = '';
-    document.getElementById('ssMethod').value = '';
+    // VMess
+    document.getElementById('vmessUuid').value = '';
+    document.getElementById('vmessAid').value = '0';
+    document.getElementById('vmessSecurity').value = 'auto';
+    // VLESS
+    document.getElementById('vlessUuid').value = '';
+    document.getElementById('vlessFlow').value = '';
+    // SS
+    document.getElementById('ssMethod').value = 'aes-256-gcm';
     document.getElementById('ssPassword').value = '';
+    document.getElementById('ssPlugin').value = '';
+    document.getElementById('ssPluginOptsInput').value = '';
+    // Trojan
+    document.getElementById('trojanPassword').value = '';
+    document.getElementById('trojanAlpn').value = '';
+    // Hysteria2
+    document.getElementById('hy2Password').value = '';
+    document.getElementById('hy2Obfs').value = '';
+    document.getElementById('hy2ObfsPassword').value = '';
+    document.getElementById('hy2UpMbps').value = '';
+    document.getElementById('hy2DownMbps').value = '';
+    // Transport
+    document.getElementById('nodeNetwork').value = 'tcp';
+    document.getElementById('wsHost').value = '';
+    document.getElementById('wsPath').value = '';
+    document.getElementById('h2Host').value = '';
+    document.getElementById('h2Path').value = '';
+    document.getElementById('grpcService').value = '';
+    // TLS
+    document.getElementById('nodeTls').value = '0';
+    document.getElementById('nodeSni').value = '';
+    document.getElementById('nodeAlpn').value = '';
+    document.getElementById('nodeAllowInsecure').value = '0';
+    document.getElementById('nodeFingerprint').value = '';
     updateConfigFields();
     document.getElementById('addNodeModal').classList.add('show');
 }
 
+// 解析 URL
+function parseNodeUrl() {
+    var url = document.getElementById('nodeUrl').value.trim();
+    if (!url) {
+        addLog('error', '[node] please paste a link');
+        return;
+    }
+
+    try {
+        if (url.startsWith('vmess://')) {
+            parseVmessUrl(url);
+        } else if (url.startsWith('vless://')) {
+            parseVlessUrl(url);
+        } else if (url.startsWith('ss://')) {
+            parseSsUrl(url);
+        } else if (url.startsWith('trojan://')) {
+            parseTrojanUrl(url);
+        } else if (url.startsWith('hy2://') || url.startsWith('hysteria2://')) {
+            parseHy2Url(url);
+        } else {
+            addLog('error', '[node] unsupported link format');
+            return;
+        }
+        updateConfigFields();
+        addLog('ok', '[node] parsed link, please review and click add');
+    } catch (e) {
+        addLog('error', '[node] failed to parse: ' + e.message);
+    }
+}
+
+function parseVmessUrl(url) {
+    var b64 = url.substring(8);
+    while (b64.length % 4 !== 0) b64 += '=';
+    var json = atob(b64);
+    var c = JSON.parse(json);
+
+    document.getElementById('nodeProtocol').value = 'vmess';
+    document.getElementById('nodeName').value = c.ps || '';
+    document.getElementById('nodeAddr').value = c.add || '';
+    document.getElementById('nodePort').value = c.port || '';
+    document.getElementById('vmessUuid').value = c.id || '';
+    document.getElementById('vmessAid').value = c.aid || '0';
+    document.getElementById('vmessSecurity').value = c.scy || 'auto';
+
+    var net = (c.net || 'tcp').toLowerCase();
+    if (net === 'raw') net = 'tcp';
+    document.getElementById('nodeNetwork').value = net;
+    if (net === 'ws') {
+        document.getElementById('wsHost').value = c.host || '';
+        document.getElementById('wsPath').value = c.path || '';
+    } else if (net === 'h2' || net === 'http') {
+        document.getElementById('h2Host').value = c.host || '';
+        document.getElementById('h2Path').value = c.path || '';
+    } else if (net === 'grpc') {
+        document.getElementById('grpcService').value = c.path || '';
+    }
+
+    var tls = c.tls === 'tls' || c.tls === '1' ? '1' : '0';
+    document.getElementById('nodeTls').value = tls;
+    if (tls === '1') {
+        document.getElementById('nodeSni').value = c.sni || c.host || '';
+        document.getElementById('nodeFingerprint').value = c.fp || '';
+    }
+}
+
+function parseVlessUrl(url) {
+    // vless://uuid@server:port?params#name
+    var content = url.substring(8);
+    var name = '';
+    if (content.includes('#')) {
+        var parts = content.split('#');
+        content = parts[0];
+        name = decodeURIComponent(parts[1] || '');
+    }
+
+    var params = {};
+    if (content.includes('?')) {
+        var qparts = content.split('?');
+        content = qparts[0];
+        (qparts[1] || '').split('&').forEach(function(p) {
+            var kv = p.split('=');
+            if (kv.length === 2) params[kv[0]] = decodeURIComponent(kv[1]);
+        });
+    }
+
+    var atparts = content.split('@');
+    var uuid = atparts[0];
+    var serverpart = (atparts[1] || '').replace(/\/$/, '');
+    var address, port;
+    if (serverpart.includes(':')) {
+        var sparts = serverpart.split(':');
+        port = parseInt(sparts[sparts.length - 1]);
+        address = sparts.slice(0, -1).join(':');
+    } else {
+        address = serverpart;
+        port = 443;
+    }
+
+    document.getElementById('nodeProtocol').value = 'vless';
+    document.getElementById('nodeName').value = name || address + ':' + port;
+    document.getElementById('nodeAddr').value = address;
+    document.getElementById('nodePort').value = port;
+    document.getElementById('vlessUuid').value = uuid;
+    document.getElementById('vlessFlow').value = params.flow || '';
+
+    var net = (params.type || 'tcp').toLowerCase();
+    document.getElementById('nodeNetwork').value = net;
+    if (net === 'ws') {
+        document.getElementById('wsHost').value = params.host || '';
+        document.getElementById('wsPath').value = params.path || '';
+    } else if (net === 'h2' || net === 'http') {
+        document.getElementById('h2Host').value = params.host || '';
+        document.getElementById('h2Path').value = params.path || '';
+    } else if (net === 'grpc') {
+        document.getElementById('grpcService').value = params.serviceName || params.path || '';
+    }
+
+    var security = params.security || '';
+    if (security === 'tls' || security === 'reality') {
+        document.getElementById('nodeTls').value = '1';
+        document.getElementById('nodeSni').value = params.sni || params.host || '';
+        document.getElementById('nodeAlpn').value = params.alpn || '';
+        document.getElementById('nodeFingerprint').value = params.fp || '';
+    }
+}
+
+function parseSsUrl(url) {
+    var content = url.substring(5);
+    var name = '';
+    if (content.includes('#')) {
+        var parts = content.split('#');
+        content = parts[0];
+        name = decodeURIComponent(parts[1] || '');
+    }
+
+    var plugin = '';
+    if (content.includes('?')) {
+        var qparts = content.split('?');
+        content = qparts[0];
+        (qparts[1] || '').split('&').forEach(function(p) {
+            if (p.startsWith('plugin=')) plugin = decodeURIComponent(p.substring(7));
+        });
+    }
+
+    if (content.includes('@')) {
+        var atparts = content.split('@');
+        var b64part = atparts[0];
+        var serverpart = (atparts[1] || '').replace(/\/$/, '');
+
+        while (b64part.length % 4 !== 0) b64part += '=';
+        var decoded = atob(b64part);
+        var method = decoded.split(':')[0];
+        var password = decoded.substring(decoded.indexOf(':') + 1);
+
+        var address, port;
+        if (serverpart.includes(':')) {
+            var sparts = serverpart.split(':');
+            port = parseInt(sparts[sparts.length - 1]);
+            address = sparts.slice(0, -1).join(':');
+        } else {
+            address = serverpart;
+            port = 8388;
+        }
+
+        document.getElementById('nodeProtocol').value = 'ss';
+        document.getElementById('nodeName').value = name || address + ':' + port;
+        document.getElementById('nodeAddr').value = address;
+        document.getElementById('nodePort').value = port;
+        document.getElementById('ssMethod').value = method;
+        document.getElementById('ssPassword').value = password;
+
+        if (plugin) {
+            if (plugin.startsWith('obfs')) {
+                document.getElementById('ssPlugin').value = 'obfs-local';
+            } else if (plugin.startsWith('v2ray-plugin')) {
+                document.getElementById('ssPlugin').value = 'v2ray-plugin';
+            }
+            var idx = plugin.indexOf(';');
+            if (idx > 0) {
+                document.getElementById('ssPluginOptsInput').value = plugin.substring(idx + 1);
+            }
+        }
+    }
+}
+
+function parseTrojanUrl(url) {
+    // trojan://password@server:port?params#name
+    var content = url.substring(9);
+    var name = '';
+    if (content.includes('#')) {
+        var parts = content.split('#');
+        content = parts[0];
+        name = decodeURIComponent(parts[1] || '');
+    }
+
+    var params = {};
+    if (content.includes('?')) {
+        var qparts = content.split('?');
+        content = qparts[0];
+        (qparts[1] || '').split('&').forEach(function(p) {
+            var kv = p.split('=');
+            if (kv.length === 2) params[kv[0]] = decodeURIComponent(kv[1]);
+        });
+    }
+
+    var atparts = content.split('@');
+    var password = decodeURIComponent(atparts[0]);
+    var serverpart = (atparts[1] || '').replace(/\/$/, '');
+    var address, port;
+    if (serverpart.includes(':')) {
+        var sparts = serverpart.split(':');
+        port = parseInt(sparts[sparts.length - 1]);
+        address = sparts.slice(0, -1).join(':');
+    } else {
+        address = serverpart;
+        port = 443;
+    }
+
+    document.getElementById('nodeProtocol').value = 'trojan';
+    document.getElementById('nodeName').value = name || address + ':' + port;
+    document.getElementById('nodeAddr').value = address;
+    document.getElementById('nodePort').value = port;
+    document.getElementById('trojanPassword').value = password;
+    document.getElementById('trojanAlpn').value = params.alpn || '';
+
+    var net = (params.type || 'tcp').toLowerCase();
+    document.getElementById('nodeNetwork').value = net;
+    if (net === 'ws') {
+        document.getElementById('wsHost').value = params.host || '';
+        document.getElementById('wsPath').value = params.path || '';
+    } else if (net === 'grpc') {
+        document.getElementById('grpcService').value = params.serviceName || '';
+    }
+
+    document.getElementById('nodeTls').value = '1';
+    document.getElementById('nodeSni').value = params.sni || params.peer || '';
+    document.getElementById('nodeAllowInsecure').value = (params.allowInsecure === '1') ? '1' : '0';
+}
+
+function parseHy2Url(url) {
+    // hy2://password@server:port?params#name
+    var content = url.replace(/^hysteria2?:\/\//, '');
+    var name = '';
+    if (content.includes('#')) {
+        var parts = content.split('#');
+        content = parts[0];
+        name = decodeURIComponent(parts[1] || '');
+    }
+
+    var params = {};
+    if (content.includes('?')) {
+        var qparts = content.split('?');
+        content = qparts[0];
+        (qparts[1] || '').split('&').forEach(function(p) {
+            var kv = p.split('=');
+            if (kv.length === 2) params[kv[0]] = decodeURIComponent(kv[1]);
+        });
+    }
+
+    var atparts = content.split('@');
+    var password = decodeURIComponent(atparts[0]);
+    var serverpart = (atparts[1] || '').replace(/\/$/, '');
+    var address, port;
+    if (serverpart.includes(':')) {
+        var sparts = serverpart.split(':');
+        port = parseInt(sparts[sparts.length - 1]);
+        address = sparts.slice(0, -1).join(':');
+    } else {
+        address = serverpart;
+        port = 443;
+    }
+
+    document.getElementById('nodeProtocol').value = 'hysteria2';
+    document.getElementById('nodeName').value = name || address + ':' + port;
+    document.getElementById('nodeAddr').value = address;
+    document.getElementById('nodePort').value = port;
+    document.getElementById('hy2Password').value = password;
+    document.getElementById('hy2UpMbps').value = params['upmbps'] || '';
+    document.getElementById('hy2DownMbps').value = params['downmbps'] || '';
+
+    if (params.obfs) {
+        document.getElementById('hy2Obfs').value = params.obfs;
+        document.getElementById('hy2ObfsPassword').value = params['obfs-password'] || '';
+    }
+
+    document.getElementById('nodeTls').value = '1';
+    document.getElementById('nodeSni').value = params.sni || '';
+    document.getElementById('nodeAllowInsecure').value = (params.insecure === '1') ? '1' : '0';
+}
+
 function updateConfigFields() {
     var proto = document.getElementById('nodeProtocol').value;
-    var container = document.getElementById('configFields');
-    if (proto === 'ss') {
-        container.innerHTML = '<div class="field"><label>method</label><input class="input" id="ssMethod" placeholder="aes-256-gcm"></div><div class="field"><label>password</label><input class="input" id="ssPassword" placeholder="password"></div>';
-    } else if (proto === 'vmess') {
-        container.innerHTML = '<div class="field"><label>uuid</label><input class="input" id="vmessUuid" placeholder="uuid"></div><div class="field"><label>alterId</label><input class="input" id="vmessAid" type="number" value="0"></div>';
+    document.getElementById('vmessFields').style.display = proto === 'vmess' ? 'block' : 'none';
+    document.getElementById('vlessFields').style.display = proto === 'vless' ? 'block' : 'none';
+    document.getElementById('ssFields').style.display = proto === 'ss' ? 'block' : 'none';
+    document.getElementById('trojanFields').style.display = proto === 'trojan' ? 'block' : 'none';
+    document.getElementById('hy2Fields').style.display = proto === 'hysteria2' ? 'block' : 'none';
+
+    // 传输层：vmess/vless/trojan 支持
+    var showTransport = ['vmess', 'vless', 'trojan'].includes(proto);
+    document.getElementById('transportFields').style.display = showTransport ? 'block' : 'none';
+
+    // TLS：所有协议都支持
+    document.getElementById('tlsFields').style.display = 'block';
+
+    updateNetworkOpts();
+    updateTlsOpts();
+    updatePluginOpts();
+    updateHy2Obfs();
+}
+
+function updatePluginOpts() {
+    var plugin = document.getElementById('ssPlugin').value;
+    document.getElementById('ssPluginOpts').style.display = plugin ? 'block' : 'none';
+}
+
+function updateNetworkOpts() {
+    var net = document.getElementById('nodeNetwork').value;
+    document.getElementById('wsOpts').style.display = net === 'ws' ? 'block' : 'none';
+    document.getElementById('h2Opts').style.display = (net === 'h2' || net === 'http') ? 'block' : 'none';
+    document.getElementById('grpcOpts').style.display = net === 'grpc' ? 'block' : 'none';
+}
+
+function updateTlsOpts() {
+    var tls = document.getElementById('nodeTls').value;
+    document.getElementById('tlsOpts').style.display = tls === '1' ? 'block' : 'none';
+}
+
+function updateHy2Obfs() {
+    var obfs = document.getElementById('hy2Obfs').value;
+    document.getElementById('hy2ObfsOpts').style.display = obfs ? 'block' : 'none';
+}
+
+// 编辑节点
+function editNode(nodeId) {
+    // 找到节点数据
+    var node = null;
+    for (var i = 0; i < groups.length; i++) {
+        for (var j = 0; j < groups[i].nodes.length; j++) {
+            if (groups[i].nodes[j].id === nodeId) {
+                node = groups[i].nodes[j];
+                break;
+            }
+        }
+        if (node) break;
     }
+    if (!node) return;
+
+    var config = {};
+    try { config = JSON.parse(node.config_json || '{}'); } catch(e) {}
+
+    // 打开模态框
+    document.getElementById('addNodeModal').classList.add('show');
+    document.querySelector('.modal-title').textContent = 'edit node';
+
+    // 基本信息
+    document.getElementById('nodeUrl').value = '';
+    document.getElementById('nodeName').value = node.name || '';
+    document.getElementById('nodeProtocol').value = node.protocol || 'vmess';
+    document.getElementById('nodeAddr').value = node.address || '';
+    document.getElementById('nodePort').value = node.port || '';
+
+    // 协议特定配置
+    if (node.protocol === 'vmess') {
+        document.getElementById('vmessUuid').value = config.id || '';
+        document.getElementById('vmessAid').value = config.aid || '0';
+        document.getElementById('vmessSecurity').value = config.security || 'auto';
+    } else if (node.protocol === 'vless') {
+        document.getElementById('vlessUuid').value = config.id || '';
+        document.getElementById('vlessFlow').value = config.flow || '';
+        document.getElementById('vlessEncryption').value = config.encryption || 'none';
+    } else if (node.protocol === 'ss') {
+        document.getElementById('ssMethod').value = config.method || 'aes-256-gcm';
+        document.getElementById('ssPassword').value = config.password || '';
+        if (config.plugin) {
+            document.getElementById('ssPlugin').value = config.plugin;
+            document.getElementById('ssPluginOptsInput').value = config.plugin_opts || '';
+        }
+    } else if (node.protocol === 'trojan') {
+        document.getElementById('trojanPassword').value = config.password || '';
+        document.getElementById('trojanAlpn').value = config.alpn || '';
+    } else if (node.protocol === 'hysteria2') {
+        document.getElementById('hy2Password').value = config.password || '';
+        document.getElementById('hy2Obfs').value = config.obfs || '';
+        document.getElementById('hy2ObfsPassword').value = config.obfs_password || '';
+        document.getElementById('hy2UpMbps').value = config.up_mbps || '';
+        document.getElementById('hy2DownMbps').value = config.down_mbps || '';
+    }
+
+    // 传输层
+    var showTransport = ['vmess', 'vless', 'trojan'].includes(node.protocol);
+    if (showTransport) {
+        document.getElementById('nodeNetwork').value = config.network || 'tcp';
+        if (config.network === 'ws') {
+            document.getElementById('wsHost').value = config.ws_host || '';
+            document.getElementById('wsPath').value = config.ws_path || '';
+        } else if (config.network === 'h2' || config.network === 'http') {
+            document.getElementById('h2Host').value = config.h2_host || '';
+            document.getElementById('h2Path').value = config.h2_path || '';
+        } else if (config.network === 'grpc') {
+            document.getElementById('grpcService').value = config.grpc_service_name || '';
+        }
+    }
+
+    // TLS
+    document.getElementById('nodeTls').value = config.tls ? '1' : '0';
+    document.getElementById('nodeSni').value = config.sni || '';
+    document.getElementById('nodeAlpn').value = config.alpn || '';
+    document.getElementById('nodeAllowInsecure').value = config.allowInsecure ? '1' : '0';
+    document.getElementById('nodeFingerprint').value = config.fingerprint || '';
+
+    updateConfigFields();
+
+    // 修改 add 按钮为 update
+    var actionsDiv = document.querySelector('#addNodeModal .modal-actions');
+    actionsDiv.innerHTML = '<button class="btn" onclick="closeEditModal()">cancel</button>' +
+        '<button class="btn btn-sm" onclick="updateNode(' + nodeId + ')">update</button>';
+}
+
+function closeEditModal() {
+    document.getElementById('addNodeModal').classList.remove('show');
+    // 恢复 add 按钮
+    var actionsDiv = document.querySelector('#addNodeModal .modal-actions');
+    actionsDiv.innerHTML = '<button class="btn" onclick="document.getElementById(\'addNodeModal\').classList.remove(\'show\')">cancel</button>' +
+        '<button class="btn btn-sm" onclick="addNode()">add</button>';
+}
+
+// 更新节点
+function updateNode(nodeId) {
+    var name = document.getElementById('nodeName').value.trim();
+    var protocol = document.getElementById('nodeProtocol').value;
+    var address = document.getElementById('nodeAddr').value.trim();
+    var port = parseInt(document.getElementById('nodePort').value) || 0;
+
+    if (!name || !address || !port) {
+        addLog('error', '[node] name, address and port required');
+        return;
+    }
+
+    var config = {};
+    var showTransport = ['vmess', 'vless', 'trojan'].includes(protocol);
+
+    // 协议特定配置
+    if (protocol === 'vmess') {
+        config.id = document.getElementById('vmessUuid').value.trim();
+        config.aid = parseInt(document.getElementById('vmessAid').value) || 0;
+        config.security = document.getElementById('vmessSecurity').value;
+    } else if (protocol === 'vless') {
+        config.id = document.getElementById('vlessUuid').value.trim();
+        config.flow = document.getElementById('vlessFlow').value;
+        config.encryption = document.getElementById('vlessEncryption').value;
+    } else if (protocol === 'ss') {
+        config.method = document.getElementById('ssMethod').value;
+        config.password = document.getElementById('ssPassword').value.trim();
+        var plugin = document.getElementById('ssPlugin').value;
+        if (plugin) {
+            config.plugin = plugin;
+            config.plugin_opts = document.getElementById('ssPluginOptsInput').value.trim();
+        }
+    } else if (protocol === 'trojan') {
+        config.password = document.getElementById('trojanPassword').value.trim();
+        config.alpn = document.getElementById('trojanAlpn').value.trim();
+    } else if (protocol === 'hysteria2') {
+        config.password = document.getElementById('hy2Password').value.trim();
+        var obfs = document.getElementById('hy2Obfs').value;
+        if (obfs) {
+            config.obfs = obfs;
+            config.obfs_password = document.getElementById('hy2ObfsPassword').value.trim();
+        }
+        config.up_mbps = parseInt(document.getElementById('hy2UpMbps').value) || 100;
+        config.down_mbps = parseInt(document.getElementById('hy2DownMbps').value) || 100;
+    }
+
+    // 传输层配置
+    if (showTransport) {
+        config.network = document.getElementById('nodeNetwork').value;
+        if (config.network === 'ws') {
+            config.ws_host = document.getElementById('wsHost').value.trim();
+            config.ws_path = document.getElementById('wsPath').value.trim();
+        } else if (config.network === 'h2' || config.network === 'http') {
+            config.h2_host = document.getElementById('h2Host').value.trim();
+            config.h2_path = document.getElementById('h2Path').value.trim();
+        } else if (config.network === 'grpc') {
+            config.grpc_service_name = document.getElementById('grpcService').value.trim();
+        }
+    }
+
+    // TLS 配置
+    var tls = document.getElementById('nodeTls').value === '1';
+    if (tls || protocol === 'trojan' || protocol === 'hysteria2') {
+        config.tls = true;
+        config.sni = document.getElementById('nodeSni').value.trim();
+        config.alpn = document.getElementById('nodeAlpn').value.trim();
+        config.allowInsecure = document.getElementById('nodeAllowInsecure').value === '1';
+        config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
+    }
+
+    fetch('/api/nodes/' + nodeId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: name,
+            protocol: protocol,
+            address: address,
+            port: port,
+            config_json: JSON.stringify(config)
+        })
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            closeEditModal();
+            addLog('ok', '[node] updated ' + name);
+            loadNodes();
+        } else {
+            addLog('error', '[node] ' + result.message);
+        }
+    })
+    .catch(err => addLog('error', '[node] ' + err));
+}
+
+// 删除节点
+function deleteNode(nodeId) {
+    var node = null;
+    for (var i = 0; i < groups.length; i++) {
+        for (var j = 0; j < groups[i].nodes.length; j++) {
+            if (groups[i].nodes[j].id === nodeId) {
+                node = groups[i].nodes[j];
+                break;
+            }
+        }
+        if (node) break;
+    }
+    if (!node) return;
+
+    document.getElementById('deleteNodeMessage').textContent = 'Delete node "' + node.name + '"?';
+    document.getElementById('deleteNodeConfirmBtn').onclick = function() {
+        document.getElementById('deleteNodeModal').classList.remove('show');
+        fetch('/api/nodes/' + nodeId, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    addLog('ok', '[node] deleted');
+                    loadNodes();
+                }
+            })
+            .catch(err => addLog('error', '[node] ' + err));
+    };
+    document.getElementById('deleteNodeModal').classList.add('show');
 }
 
 function addNode() {
@@ -297,12 +1047,61 @@ function addNode() {
     }
 
     var config = {};
-    if (protocol === 'ss') {
-        config.method = document.getElementById('ssMethod').value.trim() || 'aes-256-gcm';
-        config.password = document.getElementById('ssPassword').value.trim();
-    } else if (protocol === 'vmess') {
+    var showTransport = ['vmess', 'vless', 'trojan'].includes(protocol);
+
+    // 协议特定配置
+    if (protocol === 'vmess') {
         config.id = document.getElementById('vmessUuid').value.trim();
         config.aid = parseInt(document.getElementById('vmessAid').value) || 0;
+        config.security = document.getElementById('vmessSecurity').value;
+    } else if (protocol === 'vless') {
+        config.id = document.getElementById('vlessUuid').value.trim();
+        config.flow = document.getElementById('vlessFlow').value;
+        config.encryption = document.getElementById('vlessEncryption').value;
+    } else if (protocol === 'ss') {
+        config.method = document.getElementById('ssMethod').value;
+        config.password = document.getElementById('ssPassword').value.trim();
+        var plugin = document.getElementById('ssPlugin').value;
+        if (plugin) {
+            config.plugin = plugin;
+            config.plugin_opts = document.getElementById('ssPluginOptsInput').value.trim();
+        }
+    } else if (protocol === 'trojan') {
+        config.password = document.getElementById('trojanPassword').value.trim();
+        config.alpn = document.getElementById('trojanAlpn').value.trim();
+    } else if (protocol === 'hysteria2') {
+        config.password = document.getElementById('hy2Password').value.trim();
+        var obfs = document.getElementById('hy2Obfs').value;
+        if (obfs) {
+            config.obfs = obfs;
+            config.obfs_password = document.getElementById('hy2ObfsPassword').value.trim();
+        }
+        config.up_mbps = parseInt(document.getElementById('hy2UpMbps').value) || 100;
+        config.down_mbps = parseInt(document.getElementById('hy2DownMbps').value) || 100;
+    }
+
+    // 传输层配置
+    if (showTransport) {
+        config.network = document.getElementById('nodeNetwork').value;
+        if (config.network === 'ws') {
+            config.ws_host = document.getElementById('wsHost').value.trim();
+            config.ws_path = document.getElementById('wsPath').value.trim();
+        } else if (config.network === 'h2' || config.network === 'http') {
+            config.h2_host = document.getElementById('h2Host').value.trim();
+            config.h2_path = document.getElementById('h2Path').value.trim();
+        } else if (config.network === 'grpc') {
+            config.grpc_service_name = document.getElementById('grpcService').value.trim();
+        }
+    }
+
+    // TLS 配置
+    var tls = document.getElementById('nodeTls').value === '1';
+    if (tls || protocol === 'trojan' || protocol === 'hysteria2') {
+        config.tls = true;
+        config.sni = document.getElementById('nodeSni').value.trim();
+        config.alpn = document.getElementById('nodeAlpn').value.trim();
+        config.allowInsecure = document.getElementById('nodeAllowInsecure').value === '1';
+        config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
     }
 
     fetch('/api/nodes', {

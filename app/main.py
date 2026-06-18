@@ -440,6 +440,24 @@ def api_add_node():
     return jsonify({'success': True, 'id': node_id})
 
 
+@app.route('/api/nodes/<int:node_id>', methods=['PUT'])
+@auth_required
+def api_update_node(node_id):
+    """更新节点"""
+    data = request.json
+    name = data.get('name', '').strip()
+    protocol = data.get('protocol', '').strip()
+    address = data.get('address', '').strip()
+    port = data.get('port', 0)
+    config_json = data.get('config_json', '{}')
+
+    if not name or not protocol or not address or not port:
+        return jsonify({'success': False, 'message': 'missing required fields'})
+
+    db.update_node(node_id, name, protocol, address, port, config_json)
+    return jsonify({'success': True})
+
+
 @app.route('/api/nodes/<int:node_id>', methods=['DELETE'])
 @auth_required
 def api_delete_node(node_id):
