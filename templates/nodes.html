@@ -2,6 +2,7 @@
 
 {% block navbar_actions %}
 <button class="btn btn-sm" onclick="openAddNodeModal()">+ add node</button>
+<button class="btn btn-sm" onclick="checkAllNodes()">check all</button>
 {% endblock %}
 
 {% block extra_css %}
@@ -284,6 +285,11 @@ function renderGroups() {
         html += '<span class="group-name">' + escapeHtml(sub.name) + '</span>';
         html += '<span class="group-count">' + nodes.length + ' nodes</span>';
         html += '</div>';
+        html += '<div class="group-actions">';
+        if (nodes.length > 0) {
+            html += '<button class="btn btn-sm" onclick="event.stopPropagation(); checkGroup(' + idx + ')">check</button>';
+        }
+        html += '</div>';
         html += '</div>';
 
         html += '<div id="' + groupId + '-body" style="display:' + (idx === 0 ? 'block' : 'none') + '">';
@@ -306,8 +312,8 @@ function renderGroups() {
                 html += '<div class="node-proto"><span class="tag">' + node.protocol + '</span></div>';
                 html += '<div class="node-bin"><span class="tag">' + (node.bin_type || 'xray') + '</span></div>';
                 html += '<div class="node-addr">' + escapeHtml(node.address) + ':' + node.port + '</div>';
-                html += '<div class="node-tcp ' + getLatClass(node.tcp_latency) + '">' + formatLat(node.tcp_latency) + '</div>';
-                html += '<div class="node-url ' + getLatClass(node.curl_latency) + '">' + formatLat(node.curl_latency) + '</div>';
+                html += '<div class="node-tcp ' + getTcpLatClass(node.tcp_latency) + '">' + formatLat(node.tcp_latency) + '</div>';
+                html += '<div class="node-url ' + getUrlLatClass(node.curl_latency) + '">' + formatLat(node.curl_latency) + '</div>';
                 html += '<div class="node-actions">';
                 html += '<button class="btn btn-sm" onclick="checkNode(' + node.id + ')">check</button>';
                 html += '<button class="btn btn-sm" onclick="editNode(' + node.id + ')">edit</button>';
@@ -331,11 +337,19 @@ function toggleGroup(id) {
     body.style.display = body.style.display === 'none' ? 'block' : 'none';
 }
 
-function getLatClass(ms) {
+function getTcpLatClass(ms) {
     if (ms === null || ms === undefined) return 'lat-pending';
     if (ms < 0) return 'lat-bad';
     if (ms <= 150) return 'lat-ok';
     if (ms <= 300) return 'lat-warn';
+    return 'lat-bad';
+}
+
+function getUrlLatClass(ms) {
+    if (ms === null || ms === undefined) return 'lat-pending';
+    if (ms < 0) return 'lat-bad';
+    if (ms <= 1000) return 'lat-ok';
+    if (ms <= 2000) return 'lat-warn';
     return 'lat-bad';
 }
 
@@ -351,18 +365,18 @@ function updateStatus() {
     document.getElementById('statusInfo').textContent = total + ' nodes';
 }
 
-// check single node — TCP + URL
+// check single node — TCP + URL, returns Promise for chaining
 function checkNode(nodeId) {
     var el = document.getElementById('node-' + nodeId);
     if (el) el.classList.add('checking');
 
     // Show "..." while checking
-    var tcpCell = el.querySelector('.node-tcp');
-    var urlCell = el.querySelector('.node-url');
+    var tcpCell = el ? el.querySelector('.node-tcp') : null;
+    var urlCell = el ? el.querySelector('.node-url') : null;
     if (tcpCell) { tcpCell.textContent = '...'; tcpCell.className = 'node-tcp lat-pending'; }
     if (urlCell) { urlCell.textContent = '...'; urlCell.className = 'node-url lat-pending'; }
 
-    fetch('/api/nodes/check', {
+    return fetch('/api/nodes/check', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({node_ids: [nodeId], check_type: 'both'})
@@ -379,70 +393,109 @@ function checkNode(nodeId) {
         if (el) el.classList.remove('checking');
     })
     .catch(err => {
-        addLog('error', '[check] failed: ' + err);
-        if (el) { el.classList.remove('checking'); loadNodes(); }
+        addLog('error', '[check] ' + nodeId + ' failed: ' + err);
+        if (el) { el.classList.remove('checking'); }
     });
 }
 
-// check group
+// check group — backend async batch for one group
 function checkGroup(groupIdx) {
     var group = groups[groupIdx];
-    var nodeIds = group.nodes.map(n => n.id);
+    var nodeIds = group.nodes.map(function(n) { return n.id; });
     if (nodeIds.length === 0) return;
 
-    addLog('info', '[check] checking ' + group.sub.name + ' (' + nodeIds.length + ' nodes)...');
+    _startBatch(nodeIds, group.sub.name);
+}
 
-    // mark all as checking
-    nodeIds.forEach(id => {
+// check all nodes — backend async task, frontend just polls progress
+var batchPollTimer = null;
+
+function checkAllNodes() {
+    var allIds = [];
+    groups.forEach(function(g) {
+        g.nodes.forEach(function(n) { allIds.push(n.id); });
+    });
+    if (allIds.length === 0) {
+        addLog('info', '[check] no nodes to check');
+        return;
+    }
+    _startBatch(allIds, 'all');
+}
+
+// shared batch starter
+function _startBatch(nodeIds, label) {
+    // Mark nodes as checking
+    nodeIds.forEach(function(id) {
         var el = document.getElementById('node-' + id);
         if (el) el.classList.add('checking');
+        var tcpCell = document.querySelector('#node-' + id + ' .node-tcp');
+        var urlCell = document.querySelector('#node-' + id + ' .node-url');
+        if (tcpCell) { tcpCell.textContent = '...'; tcpCell.className = 'node-tcp lat-pending'; }
+        if (urlCell) { urlCell.textContent = '...'; urlCell.className = 'node-url lat-pending'; }
     });
+
+    addLog('info', '[check] ' + label + ': starting batch test for ' + nodeIds.length + ' nodes...');
 
     fetch('/api/nodes/check', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({node_ids: nodeIds})
+        body: JSON.stringify({node_ids: nodeIds, check_type: 'both'})
     })
     .then(r => r.json())
     .then(result => {
-        if (result.success) {
-            result.results.forEach(r => {
-                updateNodeLat(r.id, r.tcp, r.curl);
-            });
-            addLog('ok', '[check] done: ' + result.results.length + ' nodes checked');
+        if (result.success && result.task_id) {
+            addLog('info', '[check] task ' + result.task_id + ' running, ' + result.count + ' nodes queued');
+            pollBatchProgress(result.task_id);
         }
-        nodeIds.forEach(id => {
-            var el = document.getElementById('node-' + id);
-            if (el) el.classList.remove('checking');
-        });
     })
     .catch(err => {
-        addLog('error', '[check] failed: ' + err);
-        nodeIds.forEach(id => {
+        addLog('error', '[check] failed to start: ' + err);
+        // Clean up checking state on fetch failure
+        nodeIds.forEach(function(id) {
             var el = document.getElementById('node-' + id);
             if (el) el.classList.remove('checking');
         });
     });
 }
 
-// check all nodes
-function checkAllNodes() {
-    addLog('info', '[check] checking all nodes...');
-    fetch('/api/nodes/check', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({all: true})
-    })
-    .then(r => r.json())
-    .then(result => {
-        if (result.success) {
-            result.results.forEach(r => {
-                updateNodeLat(r.id, r.tcp, r.curl);
+function pollBatchProgress(taskId) {
+    if (batchPollTimer) clearInterval(batchPollTimer);
+
+    batchPollTimer = setInterval(function() {
+        fetch('/api/nodes/check/' + taskId + '/status')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+
+                // Update each completed result
+                if (data.results) {
+                    for (var nodeId in data.results) {
+                        var r = data.results[nodeId];
+                        updateNodeLat(r.node_id, r.tcp, r.url);
+                    }
+                }
+
+                if (!data.running) {
+                    clearInterval(batchPollTimer);
+                    batchPollTimer = null;
+
+                    // Remove checking state from all nodes
+                    groups.forEach(function(g) {
+                        g.nodes.forEach(function(n) {
+                            var el = document.getElementById('node-' + n.id);
+                            if (el) el.classList.remove('checking');
+                        });
+                    });
+
+                    addLog('ok', '[check] done: ' + data.done + ' of ' + data.total + ' nodes checked');
+                }
+            })
+            .catch(function() {
+                // task may have expired, stop polling
+                clearInterval(batchPollTimer);
+                batchPollTimer = null;
             });
-            addLog('ok', '[check] done: ' + result.results.length + ' nodes checked');
-        }
-    })
-    .catch(err => addLog('error', '[check] failed: ' + err));
+    }, 1500);
 }
 
 // update node latency display — tcp/url are {success, latency_ms} from API
@@ -450,19 +503,21 @@ function updateNodeLat(nodeId, tcpResult, urlResult) {
     var row = document.getElementById('node-' + nodeId);
     if (!row) return;
 
+    row.classList.remove('checking');  // restore opacity
+
     var tcpCell = row.querySelector('.node-tcp');
     var curlCell = row.querySelector('.node-url');
 
     if (tcpCell && tcpResult) {
         var tcpMs = tcpResult.success ? tcpResult.latency_ms : -1;
         tcpCell.textContent = formatLat(tcpMs);
-        tcpCell.className = 'node-tcp ' + getLatClass(tcpMs);
+        tcpCell.className = 'node-tcp ' + getTcpLatClass(tcpMs);
     }
 
     if (curlCell && urlResult) {
         var urlMs = urlResult.success ? urlResult.latency_ms : -1;
         curlCell.textContent = formatLat(urlMs);
-        curlCell.className = 'node-url ' + getLatClass(urlMs);
+        curlCell.className = 'node-url ' + getUrlLatClass(urlMs);
     }
 
     // update in memory

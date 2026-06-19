@@ -474,14 +474,14 @@ def api_delete_node(node_id):
 @app.route('/api/nodes/check', methods=['POST'])
 @auth_required
 def api_check_nodes():
-    """节点连通性检测 — 调用平台脚本执行 TCP ping 和 URL 测试
+    """节点连通性检测 — 单节点同步返回，多节点后台异步执行
 
     Body (JSON, optional):
       node_ids: [1, 2, ...]   — 指定节点，不传则检测全部
       check_type: 'tcp'|'url'|'both'  — 默认 'both'
 
-    Returns:
-      {success: true, results: [{node_id, name, tcp: {...}, url: {...}}]}
+    单节点返回: {success: true, results: [{...}]}
+    多节点返回: {success: true, task_id: 'xxx', count: N}
     """
     data = request.get_json(silent=True) or {}
     node_ids = data.get('node_ids')
@@ -490,25 +490,48 @@ def api_check_nodes():
     if check_type not in ('tcp', 'url', 'both'):
         return jsonify({'success': False, 'message': 'check_type must be tcp, url, or both'}), 400
 
+    from . import checker
+
+    # Collect node IDs
     conn = db.get_db()
     if node_ids:
-        nodes = []
+        ids = []
         for nid in node_ids:
-            row = conn.execute('SELECT id, name FROM nodes WHERE id = ?', (nid,)).fetchone()
+            row = conn.execute('SELECT id FROM nodes WHERE id = ?', (nid,)).fetchone()
             if row:
-                nodes.append({'id': row['id'], 'name': row['name']})
+                ids.append(row['id'])
     else:
-        rows = conn.execute('SELECT id, name FROM nodes').fetchall()
-        nodes = [{'id': r['id'], 'name': r['name']} for r in rows]
+        rows = conn.execute('SELECT id FROM nodes').fetchall()
+        ids = [r['id'] for r in rows]
     conn.close()
 
-    if not nodes:
+    if not ids:
         return jsonify({'success': False, 'message': 'no nodes found'}), 404
 
-    from . import checker
-    results = checker.check_nodes([n['id'] for n in nodes], check_type)
+    # Single node: synchronous, return results immediately
+    if len(ids) == 1:
+        results = checker.check_nodes(ids, check_type)
+        if results is None:
+            return jsonify({'success': False, 'message': 'a check is already running'}), 409
+        return jsonify({'success': True, 'results': results, 'check_type': check_type})
 
-    return jsonify({'success': True, 'results': results, 'check_type': check_type})
+    # Multiple nodes: background task, return task_id
+    task_id = checker.start_batch_check(ids, check_type)
+    if task_id is None:
+        return jsonify({'success': False, 'message': 'a check is already running'}), 409
+
+    return jsonify({'success': True, 'task_id': task_id, 'count': len(ids), 'check_type': check_type})
+
+
+@app.route('/api/nodes/check/<task_id>/status', methods=['GET'])
+@auth_required
+def api_check_status(task_id):
+    """查询批量检测任务进度"""
+    from . import checker
+    status = checker.get_task_status(task_id)
+    if status is None:
+        return jsonify({'success': False, 'message': 'task not found'}), 404
+    return jsonify({'success': True, **status})
 
 
 # ========== 日志 API ==========

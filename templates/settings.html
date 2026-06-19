@@ -253,7 +253,7 @@ function loadSettings() {
             document.getElementById('check_interval_normal').value = data.check_interval_normal || '240';
             document.getElementById('check_interval_failover').value = data.check_interval_failover || '30';
             document.getElementById('tcp_timeout').value = data.tcp_timeout || '3';
-            document.getElementById('curl_timeout').value = data.curl_timeout || '10';
+            document.getElementById('curl_timeout').value = data.curl_timeout || '5';
             document.getElementById('test_url').value = data.test_url || '';
             document.getElementById('auto_failover').checked = data.auto_failover === 'true';
             document.getElementById('web_port').value = data.web_port || '8080';

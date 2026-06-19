@@ -16,6 +16,7 @@ import json
 import os
 import platform
 import subprocess
+import threading
 import time
 
 from . import db
@@ -27,6 +28,27 @@ SCRIPTS_DIR = os.path.join(PROJECT_ROOT, 'scripts')
 TEMP_CONFIG_DIR = os.path.join(PROJECT_ROOT, 'data', 'temp_configs')
 
 IS_WINDOWS = platform.system() == 'Windows'
+
+# Global busy flag — prevent concurrent checks (single + batch)
+_busy = False
+_busy_lock = threading.Lock()
+
+
+def _acquire_busy():
+    """Try to acquire the global check lock. Returns True if acquired."""
+    with _busy_lock:
+        global _busy
+        if _busy:
+            return False
+        _busy = True
+        return True
+
+
+def _release_busy():
+    """Release the global check lock."""
+    with _busy_lock:
+        global _busy
+        _busy = False
 
 
 def _get_script_path():
@@ -162,7 +184,7 @@ def url_test(node):
 
     # 4. Build script arguments
     test_url = settings.get('test_url', 'http://www.gstatic.com/generate_204')
-    curl_timeout = int(settings.get('curl_timeout', 10))
+    curl_timeout = int(settings.get('curl_timeout', 5))
     script = _get_script_path()
 
     if IS_WINDOWS:
@@ -273,15 +295,25 @@ def _cleanup_file(path):
 # ============================================================
 
 def check_nodes(node_ids, check_type='both'):
-    """Check connectivity for specified nodes.
+    """Check connectivity for specified nodes (synchronous, blocks HTTP response).
 
     Args:
         node_ids: list of node IDs
         check_type: 'tcp' (TCP only), 'url' (URL only via proxy), 'both' (default)
 
     Returns:
-        list of result dicts per node: [{node_id, name, tcp: {...}, url: {...}}]
+        list of result dicts, or None if busy
     """
+    if not _acquire_busy():
+        return None
+
+    try:
+        return _check_nodes_impl(node_ids, check_type)
+    finally:
+        _release_busy()
+
+
+def _check_nodes_impl(node_ids, check_type):
     conn = db.get_db()
     results = []
 
@@ -320,3 +352,130 @@ def check_nodes(node_ids, check_type='both'):
 
     conn.close()
     return results
+
+
+# ============================================================
+# Background task management (for batch check)
+# ============================================================
+
+import uuid
+
+_tasks = {}
+_tasks_lock = threading.Lock()
+
+
+def start_batch_check(node_ids, check_type='both'):
+    """Start a background batch check. Returns task_id immediately, or None if busy.
+
+    The task runs in a daemon thread, processing nodes sequentially.
+    Results can be polled via get_task_status(task_id).
+    """
+    if not _acquire_busy():
+        return None
+
+    task_id = uuid.uuid4().hex[:12]
+
+    conn = db.get_db()
+    nodes_data = []
+    for nid in node_ids:
+        row = conn.execute('SELECT * FROM nodes WHERE id = ?', (nid,)).fetchone()
+        if row:
+            nodes_data.append(dict(row))
+    conn.close()
+
+    if not nodes_data:
+        _release_busy()
+        return None
+
+    with _tasks_lock:
+        _tasks[task_id] = {
+            'running': True,
+            'check_type': check_type,
+            'total': len(nodes_data),
+            'done': 0,
+            'results': {},     # {str(node_id): {node_id, name, tcp: {...}, url: {...}}}
+            'started_at': time.time(),
+        }
+
+    def _run():
+        try:
+            _run_impl()
+        finally:
+            with _tasks_lock:
+                if task_id in _tasks:
+                    _tasks[task_id]['running'] = False
+            _release_busy()
+
+    def _run_impl():
+        for node in nodes_data:
+            with _tasks_lock:
+                if task_id not in _tasks:
+                    return  # Task was cancelled
+
+            result = {
+                'node_id': node['id'],
+                'name': node['name'],
+                'tcp': None,
+                'url': None,
+            }
+
+            if check_type in ('tcp', 'both'):
+                tcp = tcp_ping(node)
+                result['tcp'] = tcp
+
+            if check_type in ('url', 'both'):
+                tcp_ok = result.get('tcp', {}).get('success') if result.get('tcp') else True
+                if tcp_ok:
+                    url = url_test(node)
+                else:
+                    url = {'success': False, 'error': 'skipped (tcp failed)'}
+                result['url'] = url
+
+            # Update DB
+            tcp_lat = result['tcp'].get('latency_ms') if result.get('tcp') and result['tcp'].get('success') else None
+            curl_lat = result['url'].get('latency_ms') if result.get('url') and result['url'].get('success') else None
+            db.update_node_latency(node['id'], tcp_lat, curl_lat)
+
+            # Update task state
+            with _tasks_lock:
+                if task_id not in _tasks:
+                    return
+                _tasks[task_id]['results'][str(node['id'])] = result
+                _tasks[task_id]['done'] += 1
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+    _cleanup_expired_tasks()
+    return task_id
+
+
+def get_task_status(task_id):
+    """Get current progress of a batch check task.
+
+    Returns None if task not found, or:
+        {running, check_type, total, done, results: {str(id): {...}}}
+    """
+    with _tasks_lock:
+        task = _tasks.get(task_id)
+        if not task:
+            return None
+        return {
+            'running': task['running'],
+            'check_type': task['check_type'],
+            'total': task['total'],
+            'done': task['done'],
+            'results': dict(task['results']),
+        }
+
+
+def _cleanup_expired_tasks():
+    """Remove completed tasks older than 10 minutes."""
+    now = time.time()
+    with _tasks_lock:
+        expired = [
+            tid for tid, t in _tasks.items()
+            if not t['running'] and (now - t.get('started_at', now)) > 600
+        ]
+        for tid in expired:
+            del _tasks[tid]

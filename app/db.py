@@ -15,7 +15,7 @@ DEFAULT_SETTINGS = {
     'check_interval_normal': '240',
     'check_interval_failover': '30',
     'tcp_timeout': '3',
-    'curl_timeout': '10',
+    'curl_timeout': '5',
     'test_url': 'http://www.gstatic.com/generate_204',
     'auto_failover': 'true',
     'web_port': '8080',
