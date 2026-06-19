@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, Response, session, r
 from datetime import datetime
 from functools import wraps
 from . import db
-from . import v2fly_manager
+from . import bin_manager
 from . import upgrade
 from . import subscription
 from . import checker
@@ -14,7 +14,7 @@ import os
 app = Flask(__name__, template_folder='../templates')
 app.secret_key = os.urandom(24)
 
-APP_NAME = 'V2Fly-hub'
+APP_NAME = 'ProxyHub'
 boot_time = datetime.now().strftime('%H:%M:%S')
 
 
@@ -30,18 +30,14 @@ def auth_required(f):
         # 检查是否设置了密码
         password = db.get_setting('web_password')
         if not password:
-            # 没有密码，直接放行
             return f(*args, **kwargs)
 
-        # 检查 session 中是否已登录
         if session.get('authenticated'):
             return f(*args, **kwargs)
 
-        # API 请求返回 401
         if request.path.startswith('/api/'):
             return jsonify({'success': False, 'message': 'unauthorized'}), 401
 
-        # 页面请求重定向到登录页
         return redirect('/login')
 
     return decorated
@@ -50,13 +46,10 @@ def auth_required(f):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """登录页面"""
-    # 检查是否设置了密码
     password = db.get_setting('web_password')
     if not password:
-        # 没有密码，直接跳转首页
         return redirect('/')
 
-    # 已登录直接跳转 dashboard
     if session.get('authenticated'):
         return redirect('/dashboard')
 
@@ -133,7 +126,6 @@ def settings():
 def api_get_settings():
     """获取所有设置"""
     settings = db.get_all_settings()
-    # 密码用 *** 代替
     if settings.get('web_password'):
         settings['web_password'] = '***'
     return jsonify(settings)
@@ -147,18 +139,14 @@ def api_update_settings():
     if not data:
         return jsonify({'success': False, 'message': 'no data'}), 400
 
-    # 处理密码
     password = data.get('web_password')
     password_confirm = data.pop('web_password_confirm', None)
 
     if password == '***':
-        # 密码未修改，不更新
         data.pop('web_password', None)
     elif password:
-        # 有新密码，检查确认密码
         if password != password_confirm:
             return jsonify({'success': False, 'message': 'passwords do not match'}), 400
-    # password 为空表示清空密码，允许
 
     db.update_settings(data)
     return jsonify({'success': True})
@@ -173,36 +161,42 @@ def api_reset_settings():
     return jsonify({'success': True})
 
 
-# ========== v2fly 管理 API ==========
+# ========== 二进制管理 API ==========
 
-@app.route('/api/v2fly/status', methods=['GET'])
+@app.route('/api/bins/status', methods=['GET'])
 @auth_required
-def api_v2fly_status():
-    """获取 v2fly 状态"""
-    return jsonify(v2fly_manager.get_status())
+def api_bins_status():
+    """获取所有二进制状态"""
+    return jsonify(bin_manager.get_all_status())
 
 
-@app.route('/api/v2fly/start', methods=['POST'])
+@app.route('/api/bins/<bin_name>/start', methods=['POST'])
 @auth_required
-def api_v2fly_start():
-    """启动 v2fly"""
-    result = v2fly_manager.start()
+def api_bin_start(bin_name):
+    """启动指定二进制"""
+    if bin_name not in bin_manager.BIN_REGISTRY:
+        return jsonify({'success': False, 'message': f'unknown binary: {bin_name}'}), 400
+    result = bin_manager.start(bin_name)
     return jsonify(result)
 
 
-@app.route('/api/v2fly/stop', methods=['POST'])
+@app.route('/api/bins/<bin_name>/stop', methods=['POST'])
 @auth_required
-def api_v2fly_stop():
-    """停止 v2fly"""
-    result = v2fly_manager.stop()
+def api_bin_stop(bin_name):
+    """停止指定二进制"""
+    if bin_name not in bin_manager.BIN_REGISTRY:
+        return jsonify({'success': False, 'message': f'unknown binary: {bin_name}'}), 400
+    result = bin_manager.stop(bin_name)
     return jsonify(result)
 
 
-@app.route('/api/v2fly/restart', methods=['POST'])
+@app.route('/api/bins/<bin_name>/restart', methods=['POST'])
 @auth_required
-def api_v2fly_restart():
-    """重启 v2fly"""
-    result = v2fly_manager.restart()
+def api_bin_restart(bin_name):
+    """重启指定二进制"""
+    if bin_name not in bin_manager.BIN_REGISTRY:
+        return jsonify({'success': False, 'message': f'unknown binary: {bin_name}'}), 400
+    result = bin_manager.restart(bin_name)
     return jsonify(result)
 
 
@@ -229,8 +223,9 @@ def api_upgrade_download():
         result = upgrade.download_binary(lambda d, t: None)
 
         if result['success']:
-            # 重启 v2fly
-            restart_result = v2fly_manager.restart()
+            # 重启对应二进制
+            bin_name = result.get('bin_name', 'xray')
+            restart_result = bin_manager.restart(bin_name)
             yield f"data: {json.dumps({'type': 'complete', 'version': result['version'], 'restart': restart_result})}\n\n"
         else:
             error_type = result.get('error_type', 'unknown')
@@ -264,20 +259,20 @@ def api_clear_database():
 @auth_required
 def api_system_info():
     """获取系统信息"""
-    import os
     db_path = db.DB_PATH
     db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
 
-    status = v2fly_manager.get_status()
+    # 获取所有二进制状态
+    bins_status = bin_manager.get_all_status()
+
+    # 获取平台信息
+    platform_info = bin_manager.get_platform()
 
     return jsonify({
-        'v2fly_version': status['version'],
-        'v2fly_status': status['status'],
-        'v2fly_pid': status['pid'],
-        'v2fly_uptime': status['uptime'],
-        'platform': status['platform'],
-        'platform_supported': status['platform_supported'],
-        'platform_message': status['platform_message'],
+        'bins': bins_status,
+        'platform': platform_info['key'],
+        'platform_supported': platform_info['supported'],
+        'platform_message': platform_info['message'],
         'db_size': db_size,
         'db_size_human': format_size(db_size)
     })
@@ -299,7 +294,6 @@ def format_size(size):
 def api_get_subscriptions():
     """获取所有订阅"""
     subs = db.get_all_subscriptions()
-    # 为每个订阅添加节点数量
     for sub in subs:
         nodes = db.get_nodes_by_sub(sub['id'])
         sub['node_count'] = len(nodes)
@@ -360,7 +354,7 @@ def refresh_subscription(sub_id):
     if result.get('info'):
         db.update_subscription_traffic(sub_id, result['info'])
 
-    # 解析节点
+    # 解析节点（自动设置 bin_type）
     nodes = subscription.parse_nodes(result['content'])
 
     # 应用关键字筛选
@@ -416,11 +410,12 @@ def api_add_node():
     address = data.get('address', '').strip()
     port = data.get('port', 0)
     config_json = data.get('config_json', '{}')
+    bin_type = data.get('bin_type', 'xray')
 
     if not name or not protocol or not address or not port:
         return jsonify({'success': False, 'message': 'missing required fields'})
 
-    node_id = db.add_custom_node(name, protocol, address, port, config_json)
+    node_id = db.add_custom_node(name, protocol, address, port, config_json, bin_type)
     return jsonify({'success': True, 'id': node_id})
 
 
@@ -434,11 +429,12 @@ def api_update_node(node_id):
     address = data.get('address', '').strip()
     port = data.get('port', 0)
     config_json = data.get('config_json', '{}')
+    bin_type = data.get('bin_type', 'xray')
 
     if not name or not protocol or not address or not port:
         return jsonify({'success': False, 'message': 'missing required fields'})
 
-    db.update_node(node_id, name, protocol, address, port, config_json)
+    db.update_node(node_id, name, protocol, address, port, config_json, bin_type)
     return jsonify({'success': True})
 
 

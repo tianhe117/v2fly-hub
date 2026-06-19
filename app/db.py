@@ -2,11 +2,16 @@ import sqlite3
 import os
 
 # 数据库路径：相对于项目根目录的 data/ 目录
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'v2ray.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'proxyhub.db')
+
+# 支持的二进制类型
+BIN_TYPES = ['xray', 'sslocal', 'sing-box']
 
 DEFAULT_SETTINGS = {
-    'v2fly_bin_path': './bin/v2ray.exe',
-    'v2fly_config_dir': './config',
+    'bin_path_xray': './bin/xray.exe',
+    'bin_path_sslocal': './bin/sslocal.exe',
+    'bin_path_singbox': './bin/sing-box.exe',
+    'config_dir': './config',
     'check_interval_normal': '240',
     'check_interval_failover': '30',
     'tcp_timeout': '3',
@@ -59,6 +64,7 @@ def init_db():
             address TEXT NOT NULL,
             port INTEGER NOT NULL,
             config_json TEXT NOT NULL,
+            bin_type TEXT DEFAULT 'xray',
             is_in_pool BOOLEAN DEFAULT 0,
             tcp_latency INTEGER,
             curl_latency INTEGER,
@@ -68,18 +74,17 @@ def init_db():
     conn.commit()
 
     # 迁移：添加新列（如果不存在）
-    try:
-        conn.execute('ALTER TABLE nodes ADD COLUMN tcp_latency INTEGER')
-    except:
-        pass
-    try:
-        conn.execute('ALTER TABLE nodes ADD COLUMN curl_latency INTEGER')
-    except:
-        pass
-    try:
-        conn.execute('ALTER TABLE nodes ADD COLUMN last_check_at TIMESTAMP')
-    except:
-        pass
+    for col, typ in [
+        ('bin_type', 'TEXT DEFAULT "xray"'),
+        ('tcp_latency', 'INTEGER'),
+        ('curl_latency', 'INTEGER'),
+        ('last_check_at', 'TIMESTAMP'),
+    ]:
+        try:
+            conn.execute(f'ALTER TABLE nodes ADD COLUMN {col} {typ}')
+        except:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -245,8 +250,9 @@ def add_nodes(sub_id, nodes):
     conn = get_db()
     for node in nodes:
         conn.execute(
-            'INSERT INTO nodes (sub_id, name, protocol, address, port, config_json) VALUES (?, ?, ?, ?, ?, ?)',
-            (sub_id, node['name'], node['protocol'], node['address'], node['port'], node['config_json'])
+            'INSERT INTO nodes (sub_id, name, protocol, address, port, config_json, bin_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (sub_id, node['name'], node['protocol'], node['address'], node['port'],
+             node['config_json'], node.get('bin_type', 'xray'))
         )
     conn.commit()
     conn.close()
@@ -272,12 +278,12 @@ def update_node_latency(node_id, tcp_latency, curl_latency):
     conn.close()
 
 
-def update_node(node_id, name, protocol, address, port, config_json):
+def update_node(node_id, name, protocol, address, port, config_json, bin_type='xray'):
     """更新节点信息"""
     conn = get_db()
     conn.execute(
-        'UPDATE nodes SET name = ?, protocol = ?, address = ?, port = ?, config_json = ? WHERE id = ?',
-        (name, protocol, address, port, config_json, node_id)
+        'UPDATE nodes SET name = ?, protocol = ?, address = ?, port = ?, config_json = ?, bin_type = ? WHERE id = ?',
+        (name, protocol, address, port, config_json, bin_type, node_id)
     )
     conn.commit()
     conn.close()
@@ -302,12 +308,12 @@ def get_nodes_grouped():
     return result
 
 
-def add_custom_node(name, protocol, address, port, config_json):
+def add_custom_node(name, protocol, address, port, config_json, bin_type='xray'):
     """添加用户自定义节点"""
     conn = get_db()
     cursor = conn.execute(
-        'INSERT INTO nodes (sub_id, name, protocol, address, port, config_json) VALUES (0, ?, ?, ?, ?, ?)',
-        (name, protocol, address, port, config_json)
+        'INSERT INTO nodes (sub_id, name, protocol, address, port, config_json, bin_type) VALUES (0, ?, ?, ?, ?, ?, ?)',
+        (name, protocol, address, port, config_json, bin_type)
     )
     node_id = cursor.lastrowid
     conn.commit()

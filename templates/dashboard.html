@@ -1,9 +1,6 @@
 {% extends "base.html" %}
 
 {% block navbar_actions %}
-<span style="font-size:11px;color:#888;">v2fly: <span style="color:#4caf50;">running</span> pid 12345</span>
-<button class="btn btn-sm">restart</button>
-<button class="btn btn-sm">stop</button>
 {% endblock %}
 
 {% block content %}
@@ -27,20 +24,20 @@
 
 <div class="stats">
     <div class="stat-item">
-        <div class="stat-label">v2fly</div>
-        <div class="stat-value ok">running</div>
+        <div class="stat-label">nodes</div>
+        <div class="stat-value" id="dashNodeCount">-</div>
     </div>
     <div class="stat-item">
-        <div class="stat-label">services</div>
-        <div class="stat-value">3 / 3</div>
+        <div class="stat-label">subscriptions</div>
+        <div class="stat-value" id="dashSubCount">-</div>
     </div>
     <div class="stat-item">
-        <div class="stat-label">active node</div>
-        <div class="stat-value">HK-01</div>
+        <div class="stat-label">xray</div>
+        <div class="stat-value" id="dashXrayStatus">-</div>
     </div>
     <div class="stat-item">
-        <div class="stat-label">latency</div>
-        <div class="stat-value ok">86ms</div>
+        <div class="stat-label">sing-box</div>
+        <div class="stat-value" id="dashSingboxStatus">-</div>
     </div>
 </div>
 
@@ -119,7 +116,40 @@
 </div>
 {% endblock %}
 
-{% block statusbar_right %}3 services active &middot; last check: 10s ago{% endblock %}
+{% block statusbar_right %}{% endblock %}
+
+{% block extra_js %}
+// 加载仪表盘数据
+function loadDashboard() {
+    // 加载节点和订阅数量
+    fetch('/api/nodes/grouped').then(r => r.json()).then(data => {
+        var totalNodes = 0;
+        var totalSubs = 0;
+        data.forEach(function(g) {
+            totalNodes += g.nodes.length;
+            if (g.sub.id !== 0) totalSubs++;
+        });
+        document.getElementById('dashNodeCount').textContent = totalNodes;
+        document.getElementById('dashSubCount').textContent = totalSubs;
+    });
+
+    // 加载二进制状态
+    fetch('/api/bins/status').then(r => r.json()).then(data => {
+        if (data.xray) {
+            var el = document.getElementById('dashXrayStatus');
+            el.textContent = data.xray.status;
+            el.className = 'stat-value ' + (data.xray.status === 'running' ? 'ok' : '');
+        }
+        if (data['sing-box']) {
+            var el = document.getElementById('dashSingboxStatus');
+            el.textContent = data['sing-box'].status;
+            el.className = 'stat-value ' + (data['sing-box'].status === 'running' ? 'ok' : '');
+        }
+    });
+}
+
+loadDashboard();
+{% endblock %}
 
 {% block modals %}
 <div class="modal-overlay" id="addModal">

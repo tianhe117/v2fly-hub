@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""V2Fly Manager - Entry point"""
+"""ProxyHub - Entry point"""
 
 import logging
 from app.main import app

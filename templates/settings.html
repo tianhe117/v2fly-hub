@@ -10,15 +10,12 @@
 .info-table td:first-child { color: #888; width: 120px; }
 .danger-zone { border-color: #e53935; }
 .danger-zone .section-title { color: #e53935; }
-.upgrade-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
-.upgrade-info { flex: 1; }
-.upgrade-info .ver { font-weight: bold; }
-.upgrade-info .meta { font-size: 11px; color: #888; }
-.progress-bar { height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden; margin-top: 4px; display: none; }
-.progress-bar .fill { height: 100%; background: #4caf50; width: 0%; }
-.msg-ok { color: #4caf50; font-size: 11px; margin-top: 4px; }
-.msg-error { color: #e53935; font-size: 11px; margin-top: 4px; }
-.msg-warn { color: #ffa726; font-size: 11px; margin-top: 4px; }
+.bin-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+.bin-row:last-child { border-bottom: none; }
+.bin-name { font-weight: bold; width: 80px; }
+.bin-version { flex: 1; font-size: 12px; color: #888; }
+.bin-status { font-size: 11px; width: 60px; }
+.bin-actions { display: flex; gap: 4px; }
 .change-list { font-size: 12px; max-height: 200px; overflow-y: auto; }
 .change-item { padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
 .change-item .label { color: #888; }
@@ -28,33 +25,19 @@
 
 {% block content %}
 <div class="section">
-    <div class="section-title">v2fly binary</div>
+    <div class="section-title">binaries</div>
     <div class="section-body">
-        <div id="platformWarning" style="display:none;" class="msg-error"></div>
-        <div class="upgrade-row">
-            <div class="upgrade-info">
-                <div>current: <span class="ver" id="currentVer">-</span></div>
-                <div class="meta" id="currentMeta">-</div>
-            </div>
-            <div>
-                <button class="btn btn-sm" id="checkUpdateBtn" onclick="checkUpdate()">check update</button>
-                <button class="btn btn-sm btn-ok" id="downloadBtn" style="display:none;" onclick="downloadBinary()">download latest</button>
-            </div>
-        </div>
-        <div id="updateInfo" style="display:none;">
-            <div style="font-size:12px;padding:8px 0;border-top:1px solid #f0f0f0;">
-                latest: <span class="ver" id="latestVer">-</span>
-                <span style="color:#888;margin-left:8px;" id="latestDate">-</span>
-            </div>
-        </div>
-        <div id="latestMsg" style="display:none;" class="msg-ok">✓ already the latest version</div>
-        <div class="progress-bar" id="downloadProgress"><div class="fill" id="downloadFill"></div></div>
-        <div id="downloadStatus" style="font-size:11px;color:#888;margin-top:4px;"></div>
-        <div class="field" style="margin-top:12px;">
-            <label>executable path</label>
-            <input class="input" id="v2fly_bin_path" name="v2fly_bin_path">
-        </div>
-        <div class="field"><label>config dir</label><input class="input" id="v2fly_config_dir" name="v2fly_config_dir"></div>
+        <div id="binsContainer"></div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">binary paths</div>
+    <div class="section-body">
+        <div class="field"><label>xray path</label><input class="input" id="bin_path_xray" name="bin_path_xray"></div>
+        <div class="field"><label>sslocal path</label><input class="input" id="bin_path_sslocal" name="bin_path_sslocal"></div>
+        <div class="field"><label>sing-box path</label><input class="input" id="bin_path_singbox" name="bin_path_singbox"></div>
+        <div class="field"><label>config dir</label><input class="input" id="config_dir" name="config_dir"></div>
     </div>
 </div>
 
@@ -94,10 +77,6 @@
     <div class="section-title">system info</div>
     <div class="section-body">
         <table class="info-table">
-            <tr><td>v2fly version</td><td id="sys_version">-</td></tr>
-            <tr><td>status</td><td id="sys_status">-</td></tr>
-            <tr><td>pid</td><td id="sys_pid">-</td></tr>
-            <tr><td>uptime</td><td id="sys_uptime">-</td></tr>
             <tr><td>db size</td><td id="sys_db_size">-</td></tr>
             <tr><td>platform</td><td id="sys_platform">-</td></tr>
         </table>
@@ -146,9 +125,9 @@
 {% endblock %}
 
 {% block extra_js %}
-var platformSupported = true;
 var originalSettings = {};
 var currentDangerAction = '';
+var binsData = {};
 
 // 检查密码匹配
 function checkPasswordMatch() {
@@ -164,14 +143,64 @@ function checkPasswordMatch() {
     }
 }
 
+// 渲染二进制状态
+function renderBins(data) {
+    binsData = data;
+    var container = document.getElementById('binsContainer');
+    var html = '';
+    for (var name in data) {
+        var s = data[name];
+        var statusClass = s.status === 'running' ? 'ok' : 'error';
+        var startStopBtn = s.status === 'running'
+            ? '<button class="btn btn-sm btn-danger" onclick="binAction(\'' + name + '\', \'stop\')">stop</button>'
+            : '<button class="btn btn-sm btn-ok" onclick="binAction(\'' + name + '\', \'start\')">start</button>';
+        html += '<div class="bin-row">';
+        html += '<span class="bin-name">' + name + '</span>';
+        html += '<span class="bin-version">' + (s.version || 'not found') + '</span>';
+        html += '<span class="bin-status"><span class="status-dot ' + statusClass + '"></span>' + s.status + '</span>';
+        html += '<span class="bin-actions">';
+        html += startStopBtn;
+        html += '<button class="btn btn-sm" onclick="binAction(\'' + name + '\', \'restart\')">restart</button>';
+        html += '</span>';
+        html += '</div>';
+    }
+    container.innerHTML = html;
+}
+
+// 二进制操作
+function binAction(binName, action) {
+    addLog('info', '[' + binName + '] ' + action + '...');
+    fetch('/api/bins/' + binName + '/' + action, {method: 'POST'})
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                addLog('ok', '[' + binName + '] ' + action + ' success');
+                loadBinsStatus();
+            } else {
+                addLog('error', '[' + binName + '] ' + result.message);
+            }
+        })
+        .catch(err => addLog('error', '[' + binName + '] ' + err));
+}
+
+// 加载二进制状态
+function loadBinsStatus() {
+    fetch('/api/bins/status')
+        .then(r => r.json())
+        .then(data => renderBins(data))
+        .catch(err => addLog('error', '[bins] status load failed: ' + err));
+}
+
 // 加载设置
 function loadSettings() {
     fetch('/api/settings')
         .then(r => r.json())
         .then(data => {
             originalSettings = data;
-            document.getElementById('v2fly_bin_path').value = data.v2fly_bin_path || '';
-            document.getElementById('v2fly_config_dir').value = data.v2fly_config_dir || '';
+            document.getElementById('bin_path_xray').value = data.bin_path_xray || '';
+            document.getElementById('bin_path_sslocal').value = data.bin_path_sslocal || '';
+            document.getElementById('bin_path_singbox').value = data.bin_path_singbox || '';
+            document.getElementById('config_dir').value = data.config_dir || '';
             document.getElementById('check_interval_normal').value = data.check_interval_normal || '240';
             document.getElementById('check_interval_failover').value = data.check_interval_failover || '30';
             document.getElementById('tcp_timeout').value = data.tcp_timeout || '3';
@@ -192,27 +221,8 @@ function loadSystemInfo() {
     fetch('/api/system/info')
         .then(r => r.json())
         .then(data => {
-            document.getElementById('sys_version').textContent = data.v2fly_version || '-';
-            document.getElementById('sys_status').textContent = data.v2fly_status || '-';
-            document.getElementById('sys_pid').textContent = data.v2fly_pid || '-';
-            document.getElementById('sys_uptime').textContent = data.v2fly_uptime ? data.v2fly_uptime + 's' : '-';
             document.getElementById('sys_db_size').textContent = data.db_size_human || '-';
             document.getElementById('sys_platform').textContent = data.platform || '-';
-
-            document.getElementById('currentVer').textContent = data.v2fly_version || '-';
-            document.getElementById('currentMeta').textContent = data.platform + ' · status: ' + data.v2fly_status;
-
-            platformSupported = data.platform_supported;
-            var warning = document.getElementById('platformWarning');
-            if (!platformSupported) {
-                warning.textContent = '⚠ ' + data.platform_message;
-                warning.style.display = '';
-                document.getElementById('checkUpdateBtn').disabled = true;
-            } else {
-                warning.style.display = 'none';
-                document.getElementById('checkUpdateBtn').disabled = false;
-            }
-
         })
         .catch(err => addLog('error', '[system] info load failed: ' + err));
 }
@@ -228,8 +238,10 @@ function prepareSave() {
     }
 
     var newSettings = {
-        v2fly_bin_path: document.getElementById('v2fly_bin_path').value,
-        v2fly_config_dir: document.getElementById('v2fly_config_dir').value,
+        bin_path_xray: document.getElementById('bin_path_xray').value,
+        bin_path_sslocal: document.getElementById('bin_path_sslocal').value,
+        bin_path_singbox: document.getElementById('bin_path_singbox').value,
+        config_dir: document.getElementById('config_dir').value,
         check_interval_normal: document.getElementById('check_interval_normal').value,
         check_interval_failover: document.getElementById('check_interval_failover').value,
         tcp_timeout: document.getElementById('tcp_timeout').value,
@@ -243,8 +255,10 @@ function prepareSave() {
     // 检测变更
     var changes = [];
     var fields = {
-        v2fly_bin_path: 'executable path',
-        v2fly_config_dir: 'config dir',
+        bin_path_xray: 'xray path',
+        bin_path_sslocal: 'sslocal path',
+        bin_path_singbox: 'sing-box path',
+        config_dir: 'config dir',
         check_interval_normal: 'normal interval',
         check_interval_failover: 'failover interval',
         tcp_timeout: 'tcp timeout',
@@ -299,8 +313,10 @@ function confirmSave() {
     var passwordConfirm = document.getElementById('web_password_confirm').value;
 
     var data = {
-        v2fly_bin_path: document.getElementById('v2fly_bin_path').value,
-        v2fly_config_dir: document.getElementById('v2fly_config_dir').value,
+        bin_path_xray: document.getElementById('bin_path_xray').value,
+        bin_path_sslocal: document.getElementById('bin_path_sslocal').value,
+        bin_path_singbox: document.getElementById('bin_path_singbox').value,
+        config_dir: document.getElementById('config_dir').value,
         check_interval_normal: document.getElementById('check_interval_normal').value,
         check_interval_failover: document.getElementById('check_interval_failover').value,
         tcp_timeout: document.getElementById('tcp_timeout').value,
@@ -340,7 +356,6 @@ function confirmDanger(action) {
     document.getElementById('dangerConfirmBtn').disabled = true;
     document.getElementById('dangerModal').classList.add('show');
 
-    // 监听输入
     document.getElementById('dangerInput').oninput = function() {
         document.getElementById('dangerConfirmBtn').disabled = (this.value !== action);
     };
@@ -365,122 +380,13 @@ function executeDanger() {
             if (result.success) {
                 addLog('ok', '[' + currentDangerAction + '] done');
                 loadSettings();
-                loadSystemInfo();
+                loadBinsStatus();
             }
         });
-}
-
-// 检查更新
-function checkUpdate() {
-    if (!platformSupported) {
-        addLog('error', '[upgrade] platform not supported');
-        return;
-    }
-
-    var btn = document.getElementById('checkUpdateBtn');
-    btn.disabled = true;
-    btn.textContent = 'checking...';
-    addLog('info', '[upgrade] checking latest release from github...');
-
-    document.getElementById('updateInfo').style.display = 'none';
-    document.getElementById('downloadBtn').style.display = 'none';
-    document.getElementById('latestMsg').style.display = 'none';
-
-    fetch('/api/upgrade/check')
-        .then(r => r.json())
-        .then(data => {
-            btn.disabled = false;
-            btn.textContent = 'check update';
-
-            if (data.success) {
-                if (data.is_latest) {
-                    document.getElementById('latestMsg').style.display = '';
-                    addLog('ok', '[upgrade] already the latest version: ' + data.current_version);
-                } else {
-                    document.getElementById('updateInfo').style.display = '';
-                    document.getElementById('downloadBtn').style.display = '';
-                    document.getElementById('latestVer').textContent = data.tag_name;
-                    document.getElementById('latestDate').textContent = data.published_at;
-                    addLog('ok', '[upgrade] latest version: ' + data.tag_name + ' (' + data.published_at + ')');
-                }
-            } else {
-                if (data.error_type === 'platform_not_supported') {
-                    document.getElementById('platformWarning').textContent = '⚠ ' + data.message;
-                    document.getElementById('platformWarning').style.display = '';
-                    platformSupported = false;
-                }
-                addLog('error', '[upgrade] check failed: ' + data.message);
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.textContent = 'check update';
-            addLog('error', '[upgrade] check failed: ' + err);
-        });
-}
-
-// 下载二进制
-function downloadBinary() {
-    var btn = document.getElementById('downloadBtn');
-    var bar = document.getElementById('downloadProgress');
-    var fill = document.getElementById('downloadFill');
-    var status = document.getElementById('downloadStatus');
-
-    btn.disabled = true;
-    btn.textContent = 'downloading...';
-    bar.style.display = '';
-    fill.style.width = '0%';
-    status.textContent = 'downloading...';
-    addLog('info', '[upgrade] starting upgrade...');
-
-    var evtSource = new EventSource('/api/upgrade/download');
-    evtSource.onmessage = function(event) {
-        var data = JSON.parse(event.data);
-        if (data.type === 'progress') {
-            fill.style.width = data.pct + '%';
-            status.textContent = 'downloading... ' + data.pct + '%';
-        } else if (data.type === 'complete') {
-            evtSource.close();
-            fill.style.width = '100%';
-            status.textContent = 'installed, restarting...';
-            addLog('ok', '[upgrade] download complete');
-
-            setTimeout(function() {
-                btn.style.display = 'none';
-                document.getElementById('updateInfo').style.display = 'none';
-                bar.style.display = 'none';
-                status.textContent = 'upgraded to ' + data.version;
-                addLog('ok', '[upgrade] done');
-                loadSystemInfo();
-            }, 1500);
-        } else if (data.type === 'error') {
-            evtSource.close();
-            btn.disabled = false;
-            btn.textContent = 'download latest';
-            bar.style.display = 'none';
-
-            if (data.message === 'already_latest') {
-                status.textContent = '';
-                document.getElementById('latestMsg').style.display = '';
-                addLog('ok', '[upgrade] already the latest version');
-            } else {
-                status.textContent = '';
-                addLog('error', '[upgrade] failed: ' + data.message);
-            }
-        }
-    };
-
-    evtSource.onerror = function() {
-        evtSource.close();
-        btn.disabled = false;
-        btn.textContent = 'download latest';
-        bar.style.display = 'none';
-        status.textContent = '';
-        addLog('error', '[upgrade] connection lost');
-    };
 }
 
 // 页面加载时初始化
 loadSettings();
+loadBinsStatus();
 loadSystemInfo();
 {% endblock %}

@@ -138,7 +138,7 @@
         </div>
     </div>
     <div class="statusbar">
-        <span>{% block statusbar_left %}<span class="status-dot idle" id="globalStatusDot"></span><span id="globalStatusText">checking...</span>{% endblock %}</span>
+        <span>{% block statusbar_left %}<span id="binsStatusBar">loading...</span>{% endblock %}</span>
         <span>{% block statusbar_right %}{% endblock %}</span>
     </div>
 
@@ -208,27 +208,24 @@
             }
         });
 
-        // 检查 v2fly 状态并更新状态栏
-        function checkV2flyStatus() {
-            fetch('/api/system/info')
+        // 检查所有二进制状态并更新状态栏
+        function checkBinsStatus() {
+            fetch('/api/bins/status')
                 .then(r => r.json())
                 .then(data => {
-                    var dot = document.getElementById('globalStatusDot');
-                    var text = document.getElementById('globalStatusText');
-                    if (!dot || !text) return;
-                    if (data.v2fly_status === 'running') {
-                        dot.className = 'status-dot ok';
-                        text.textContent = 'v2fly running';
-                    } else {
-                        dot.className = 'status-dot error';
-                        text.textContent = 'v2fly stopped';
+                    var el = document.getElementById('binsStatusBar');
+                    if (!el) return;
+                    var parts = [];
+                    for (var name in data) {
+                        var s = data[name];
+                        var dotClass = s.status === 'running' ? 'ok' : 'idle';
+                        parts.push('<span class="status-dot ' + dotClass + '"></span>' + name);
                     }
+                    el.innerHTML = parts.join('  ');
                 })
                 .catch(function() {
-                    var dot = document.getElementById('globalStatusDot');
-                    var text = document.getElementById('globalStatusText');
-                    if (dot) dot.className = 'status-dot error';
-                    if (text) text.textContent = 'connection error';
+                    var el = document.getElementById('binsStatusBar');
+                    if (el) el.innerHTML = '<span class="status-dot error"></span>connection error';
                 });
         }
 
@@ -237,8 +234,8 @@
         fetchLogs();
 
         // 页面加载时检查状态，之后每 10 秒刷新
-        checkV2flyStatus();
-        setInterval(checkV2flyStatus, 10000);
+        checkBinsStatus();
+        setInterval(checkBinsStatus, 10000);
 
         {% block extra_js %}{% endblock %}
     </script>

@@ -19,6 +19,7 @@
 .node-row:last-child { border-radius: 0 0 3px 3px; margin-bottom: 12px; }
 .node-name { flex: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .node-proto { flex: 0 0 80px; min-width: 80px; }
+.node-bin { flex: 0 0 80px; min-width: 80px; }
 .node-addr { flex: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #666; }
 .node-tcp { flex: 0 0 70px; text-align: right; }
 .node-curl { flex: 0 0 70px; text-align: right; }
@@ -55,15 +56,25 @@
 
         <!-- 基本信息 -->
         <div class="field"><label>name</label><input class="input" id="nodeName"></div>
-        <div class="field">
-            <label>protocol</label>
-            <select class="input" id="nodeProtocol" onchange="updateConfigFields()">
-                <option value="vmess">VMess</option>
-                <option value="vless">VLESS</option>
-                <option value="ss">Shadowsocks</option>
-                <option value="trojan">Trojan</option>
-                <option value="hysteria2">Hysteria2</option>
-            </select>
+        <div class="field-row">
+            <div class="field">
+                <label>protocol</label>
+                <select class="input" id="nodeProtocol" onchange="updateConfigFields()">
+                    <option value="vmess">VMess</option>
+                    <option value="vless">VLESS</option>
+                    <option value="ss">Shadowsocks</option>
+                    <option value="trojan">Trojan</option>
+                    <option value="hysteria2">Hysteria2</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>binary</label>
+                <select class="input" id="nodeBinType">
+                    <option value="xray">xray</option>
+                    <option value="sslocal">sslocal</option>
+                    <option value="sing-box">sing-box</option>
+                </select>
+            </div>
         </div>
         <div class="field"><label>address</label><input class="input" id="nodeAddr" placeholder="server.example.com"></div>
         <div class="field"><label>port</label><input class="input" id="nodePort" type="number" placeholder="443"></div>
@@ -271,6 +282,7 @@ function renderGroups() {
             html += '<div class="node-row" style="background:#f9f9f9;font-weight:bold;font-size:12px;color:#666;">';
             html += '<div class="node-name">name</div>';
             html += '<div class="node-proto">proto</div>';
+            html += '<div class="node-bin">bin</div>';
             html += '<div class="node-addr">address</div>';
             html += '<div class="node-tcp" style="text-align:right;">tcp</div>';
             html += '<div class="node-curl" style="text-align:right;">curl</div>';
@@ -280,6 +292,7 @@ function renderGroups() {
                 html += '<div class="node-row" id="node-' + node.id + '">';
                 html += '<div class="node-name">' + escapeHtml(node.name) + '</div>';
                 html += '<div class="node-proto"><span class="tag">' + node.protocol + '</span></div>';
+                html += '<div class="node-bin"><span class="tag">' + (node.bin_type || 'xray') + '</span></div>';
                 html += '<div class="node-addr">' + escapeHtml(node.address) + ':' + node.port + '</div>';
                 html += '<div class="node-tcp ' + getLatClass(node.tcp_latency) + '">' + formatLat(node.tcp_latency) + '</div>';
                 html += '<div class="node-curl ' + getLatClass(node.curl_latency) + '">' + formatLat(node.curl_latency) + '</div>';
@@ -443,6 +456,7 @@ function openAddNodeModal() {
     document.getElementById('nodeUrl').value = '';
     document.getElementById('nodeName').value = '';
     document.getElementById('nodeProtocol').value = 'vmess';
+    document.getElementById('nodeBinType').value = 'xray';
     document.getElementById('nodeAddr').value = '';
     document.getElementById('nodePort').value = '';
     // VMess
@@ -788,6 +802,14 @@ function updateConfigFields() {
     // TLS：所有协议都支持
     document.getElementById('tlsFields').style.display = 'block';
 
+    // 自动设置 bin_type
+    var binTypeMap = {
+        'vmess': 'xray', 'vless': 'xray', 'trojan': 'xray',
+        'ss': 'xray',
+        'hysteria2': 'sing-box'
+    };
+    document.getElementById('nodeBinType').value = binTypeMap[proto] || 'xray';
+
     updateNetworkOpts();
     updateTlsOpts();
     updatePluginOpts();
@@ -842,6 +864,7 @@ function editNode(nodeId) {
     document.getElementById('nodeUrl').value = '';
     document.getElementById('nodeName').value = node.name || '';
     document.getElementById('nodeProtocol').value = node.protocol || 'vmess';
+    document.getElementById('nodeBinType').value = node.bin_type || 'xray';
     document.getElementById('nodeAddr').value = node.address || '';
     document.getElementById('nodePort').value = node.port || '';
 
@@ -981,6 +1004,8 @@ function updateNode(nodeId) {
         config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
     }
 
+    var binType = document.getElementById('nodeBinType').value;
+
     // 立即关闭弹窗
     closeEditModal();
     addLog('info', '[node] updating "' + name + '"...');
@@ -993,7 +1018,8 @@ function updateNode(nodeId) {
             protocol: protocol,
             address: address,
             port: port,
-            config_json: JSON.stringify(config)
+            config_json: JSON.stringify(config),
+            bin_type: binType
         })
     })
     .then(r => r.json())
@@ -1107,6 +1133,8 @@ function addNode() {
         config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
     }
 
+    var binType = document.getElementById('nodeBinType').value;
+
     // 立即关闭弹窗
     document.getElementById('addNodeModal').classList.remove('show');
     addLog('info', '[node] adding "' + name + '"...');
@@ -1119,7 +1147,8 @@ function addNode() {
             protocol: protocol,
             address: address,
             port: port,
-            config_json: JSON.stringify(config)
+            config_json: JSON.stringify(config),
+            bin_type: binType
         })
     })
     .then(r => r.json())
