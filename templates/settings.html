@@ -14,7 +14,6 @@
 .bin-row:last-child { border-bottom: none; }
 .bin-name { font-weight: bold; width: 80px; }
 .bin-version { flex: 1; font-size: 12px; color: #888; }
-.bin-status { font-size: 11px; width: 60px; }
 .bin-actions { display: flex; gap: 4px; }
 .change-list { font-size: 12px; max-height: 200px; overflow-y: auto; }
 .change-item { padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
@@ -150,11 +149,9 @@ function renderBins(data) {
     var html = '';
     for (var name in data) {
         var s = data[name];
-        var statusClass = s.status === 'running' ? 'ok' : 'error';
         html += '<div class="bin-row">';
         html += '<span class="bin-name">' + name + '</span>';
         html += '<span class="bin-version">' + (s.version || 'not found') + '</span>';
-        html += '<span class="bin-status"><span class="status-dot ' + statusClass + '"></span>' + s.status + '</span>';
         html += '<span class="bin-actions">';
         html += '<button class="btn btn-sm" onclick="checkBinUpdate(\'' + name + '\')">check update</button>';
         html += '</span>';
