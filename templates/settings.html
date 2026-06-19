@@ -149,53 +149,87 @@ function renderBins(data) {
     var html = '';
     for (var name in data) {
         var s = data[name];
-        html += '<div class="bin-row">';
+        html += '<div class="bin-row" id="bin-row-' + name + '">';
         html += '<span class="bin-name">' + name + '</span>';
         html += '<span class="bin-version">' + (s.version || 'not found') + '</span>';
         html += '<span class="bin-actions">';
         html += '<button class="btn btn-sm" onclick="checkBinUpdate(\'' + name + '\')">check update</button>';
         html += '</span>';
         html += '</div>';
+        html += '<div class="bin-update" id="bin-update-' + name + '" style="display:none;padding:4px 0 8px 92px;font-size:12px;"></div>';
     }
     container.innerHTML = html;
 }
 
 // 检查二进制更新
 function checkBinUpdate(binName) {
+    var btn = document.querySelector('#bin-row-' + binName + ' .btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'checking...'; }
+
     addLog('info', '[' + binName + '] checking update...');
     fetch('/api/upgrade/check/' + binName)
         .then(r => r.json())
         .then(data => {
+            if (btn) { btn.disabled = false; btn.textContent = 'check update'; }
+
             if (data.success) {
+                var updateDiv = document.getElementById('bin-update-' + binName);
+                var html = '';
+
                 if (data.is_latest) {
+                    html += '<span style="color:#4caf50;">✓ already latest (' + data.current_version + ')</span>';
                     addLog('ok', '[' + binName + '] already latest: ' + data.current_version);
                 } else {
-                    addLog('ok', '[' + binName + '] new version: ' + data.tag_name + ' (current: ' + data.current_version + ')');
-                    if (confirm('Download ' + binName + ' ' + data.tag_name + '?')) {
-                        downloadBinBinary(binName);
-                    }
+                    html += 'latest: <strong>' + data.tag_name + '</strong> <span style="color:#888;margin:0 8px;">' + data.published_at + '</span>' +
+                        '<button class="btn btn-sm btn-ok" onclick="downloadBinBinary(\'' + binName + '\')">download</button>';
+                    addLog('ok', '[' + binName + '] new version: ' + data.tag_name);
                 }
+
+                // 显示插件状态
+                if (data.plugins && data.plugins.length > 0) {
+                    html += '<div style="margin-top:4px;font-size:11px;color:#888;">plugins: ';
+                    data.plugins.forEach(function(p, i) {
+                        if (i > 0) html += ', ';
+                        html += p.name + ': ' + (p.exists ? '<span style="color:#4caf50;">✓</span>' : '<span style="color:#e53935;">✗ missing</span>');
+                    });
+                    html += '</div>';
+                }
+
+                updateDiv.innerHTML = html;
+                updateDiv.style.display = '';
             } else {
                 addLog('error', '[' + binName + '] ' + data.message);
             }
         })
-        .catch(err => addLog('error', '[' + binName + '] ' + err));
+        .catch(err => {
+            if (btn) { btn.disabled = false; btn.textContent = 'check update'; }
+            addLog('error', '[' + binName + '] ' + err);
+        });
 }
 
 // 下载二进制
 function downloadBinBinary(binName) {
+    var updateDiv = document.getElementById('bin-update-' + binName);
+    updateDiv.innerHTML = '<span style="color:#888;">downloading...</span>';
     addLog('info', '[' + binName + '] downloading...');
-    fetch('/api/upgrade/download/' + binName)
+
+    fetch('/api/upgrade/download/' + binName, {method: 'POST'})
         .then(r => r.json())
         .then(result => {
             if (result.success) {
-                addLog('ok', '[' + binName + '] upgraded to ' + result.version);
+                var msg = result.message ? result.message : 'upgraded to ' + result.version;
+                updateDiv.innerHTML = '<span style="color:#4caf50;">✓ ' + msg + '</span>';
+                addLog('ok', '[' + binName + '] ' + msg);
                 loadBinsStatus();
             } else {
+                updateDiv.innerHTML = '<span style="color:#e53935;">✗ ' + result.message + '</span>';
                 addLog('error', '[' + binName + '] ' + result.message);
             }
         })
-        .catch(err => addLog('error', '[' + binName + '] ' + err));
+        .catch(err => {
+            updateDiv.innerHTML = '<span style="color:#e53935;">✗ download failed</span>';
+            addLog('error', '[' + binName + '] ' + err);
+        });
 }
 
 // 加载二进制状态

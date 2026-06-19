@@ -212,24 +212,20 @@ def api_upgrade_check(bin_name):
     return jsonify(result)
 
 
-@app.route('/api/upgrade/download/<bin_name>', methods=['GET'])
+@app.route('/api/upgrade/download/<bin_name>', methods=['POST'])
 @auth_required
 def api_upgrade_download(bin_name):
-    """下载指定二进制的更新（SSE 流式响应）"""
+    """下载指定二进制的更新"""
     if bin_name not in upgrade.BIN_REPOS:
         return jsonify({'success': False, 'message': f'unknown binary: {bin_name}'}), 400
 
-    def generate():
-        result = upgrade.download_binary(bin_name)
+    result = upgrade.download_binary(bin_name)
 
-        if result['success']:
-            restart_result = bin_manager.restart(bin_name)
-            yield f"data: {json.dumps({'type': 'complete', 'version': result['version'], 'restart': restart_result})}\n\n"
-        else:
-            error_type = result.get('error_type', 'unknown')
-            yield f"data: {json.dumps({'type': 'error', 'message': result['message'], 'error_type': error_type})}\n\n"
-
-    return Response(generate(), mimetype='text/event-stream')
+    if result['success']:
+        restart_result = bin_manager.restart(bin_name)
+        return jsonify({'success': True, 'version': result['version'], 'restart': restart_result})
+    else:
+        return jsonify({'success': False, 'message': result['message']})
 
 
 # ========== 危险操作 API ==========
