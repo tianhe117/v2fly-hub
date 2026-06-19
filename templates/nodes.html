@@ -2,7 +2,6 @@
 
 {% block navbar_actions %}
 <button class="btn btn-sm" onclick="openAddNodeModal()">+ add node</button>
-<button class="btn btn-sm" onclick="checkAllNodes()">check all</button>
 {% endblock %}
 
 {% block extra_css %}
@@ -22,7 +21,7 @@
 .node-bin { flex: 0 0 80px; min-width: 80px; }
 .node-addr { flex: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #666; }
 .node-tcp { flex: 0 0 70px; text-align: right; }
-.node-curl { flex: 0 0 70px; text-align: right; }
+.node-url { flex: 0 0 70px; text-align: right; }
 .node-actions { flex: 0 0 150px; display: flex; gap: 4px; justify-content: flex-end; }
 .tag { display: inline-block; padding: 1px 6px; background: #e8e8e8; border-radius: 2px; font-size: 11px; white-space: nowrap; }
 .checking { opacity: 0.5; }
@@ -285,11 +284,6 @@ function renderGroups() {
         html += '<span class="group-name">' + escapeHtml(sub.name) + '</span>';
         html += '<span class="group-count">' + nodes.length + ' nodes</span>';
         html += '</div>';
-        html += '<div class="group-actions">';
-        if (nodes.length > 0) {
-            html += '<button class="btn btn-sm" onclick="event.stopPropagation(); checkGroup(' + idx + ')">check</button>';
-        }
-        html += '</div>';
         html += '</div>';
 
         html += '<div id="' + groupId + '-body" style="display:' + (idx === 0 ? 'block' : 'none') + '">';
@@ -303,7 +297,7 @@ function renderGroups() {
             html += '<div class="node-bin">bin</div>';
             html += '<div class="node-addr">address</div>';
             html += '<div class="node-tcp" style="text-align:right;">tcp</div>';
-            html += '<div class="node-curl" style="text-align:right;">curl</div>';
+            html += '<div class="node-url" style="text-align:right;">url</div>';
             html += '<div class="node-actions"></div>';
             html += '</div>';
             nodes.forEach(function(node) {
@@ -313,7 +307,7 @@ function renderGroups() {
                 html += '<div class="node-bin"><span class="tag">' + (node.bin_type || 'xray') + '</span></div>';
                 html += '<div class="node-addr">' + escapeHtml(node.address) + ':' + node.port + '</div>';
                 html += '<div class="node-tcp ' + getLatClass(node.tcp_latency) + '">' + formatLat(node.tcp_latency) + '</div>';
-                html += '<div class="node-curl ' + getLatClass(node.curl_latency) + '">' + formatLat(node.curl_latency) + '</div>';
+                html += '<div class="node-url ' + getLatClass(node.curl_latency) + '">' + formatLat(node.curl_latency) + '</div>';
                 html += '<div class="node-actions">';
                 html += '<button class="btn btn-sm" onclick="checkNode(' + node.id + ')">check</button>';
                 html += '<button class="btn btn-sm" onclick="editNode(' + node.id + ')">edit</button>';
@@ -357,28 +351,36 @@ function updateStatus() {
     document.getElementById('statusInfo').textContent = total + ' nodes';
 }
 
-// check single node
+// check single node — TCP + URL
 function checkNode(nodeId) {
     var el = document.getElementById('node-' + nodeId);
     if (el) el.classList.add('checking');
 
+    // Show "..." while checking
+    var tcpCell = el.querySelector('.node-tcp');
+    var urlCell = el.querySelector('.node-url');
+    if (tcpCell) { tcpCell.textContent = '...'; tcpCell.className = 'node-tcp lat-pending'; }
+    if (urlCell) { urlCell.textContent = '...'; urlCell.className = 'node-url lat-pending'; }
+
     fetch('/api/nodes/check', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({node_ids: [nodeId]})
+        body: JSON.stringify({node_ids: [nodeId], check_type: 'both'})
     })
     .then(r => r.json())
     .then(result => {
         if (result.success && result.results.length > 0) {
             var r = result.results[0];
-            updateNodeLat(r.id, r.tcp, r.curl);
-            addLog('info', '[check] ' + r.name + ': tcp ' + formatLat(r.tcp) + ', curl ' + formatLat(r.curl));
+            updateNodeLat(r.node_id, r.tcp, r.url);
+            var tcpStr = r.tcp && r.tcp.success ? r.tcp.latency_ms + 'ms' : 'fail';
+            var urlStr = r.url && r.url.success ? r.url.latency_ms + 'ms' : 'fail';
+            addLog('ok', '[check] ' + r.name + ': tcp ' + tcpStr + ', url ' + urlStr);
         }
         if (el) el.classList.remove('checking');
     })
     .catch(err => {
         addLog('error', '[check] failed: ' + err);
-        if (el) el.classList.remove('checking');
+        if (el) { el.classList.remove('checking'); loadNodes(); }
     });
 }
 
@@ -443,26 +445,32 @@ function checkAllNodes() {
     .catch(err => addLog('error', '[check] failed: ' + err));
 }
 
-// update node latency display
-function updateNodeLat(nodeId, tcp, curl) {
+// update node latency display — tcp/url are {success, latency_ms} from API
+function updateNodeLat(nodeId, tcpResult, urlResult) {
     var row = document.getElementById('node-' + nodeId);
     if (!row) return;
 
     var tcpCell = row.querySelector('.node-tcp');
-    var curlCell = row.querySelector('.node-curl');
+    var curlCell = row.querySelector('.node-url');
 
-    tcpCell.textContent = formatLat(tcp);
-    tcpCell.className = 'node-tcp ' + getLatClass(tcp);
+    if (tcpCell && tcpResult) {
+        var tcpMs = tcpResult.success ? tcpResult.latency_ms : -1;
+        tcpCell.textContent = formatLat(tcpMs);
+        tcpCell.className = 'node-tcp ' + getLatClass(tcpMs);
+    }
 
-    curlCell.textContent = formatLat(curl);
-    curlCell.className = 'node-curl ' + getLatClass(curl);
+    if (curlCell && urlResult) {
+        var urlMs = urlResult.success ? urlResult.latency_ms : -1;
+        curlCell.textContent = formatLat(urlMs);
+        curlCell.className = 'node-url ' + getLatClass(urlMs);
+    }
 
     // update in memory
     groups.forEach(g => {
         g.nodes.forEach(n => {
             if (n.id === nodeId) {
-                n.tcp_latency = tcp;
-                n.curl_latency = curl;
+                if (tcpResult) n.tcp_latency = tcpResult.success ? tcpResult.latency_ms : -1;
+                if (urlResult) n.curl_latency = urlResult.success ? urlResult.latency_ms : -1;
             }
         });
     });

@@ -49,10 +49,10 @@ def _build_hysteria2(address, port, cfg):
         "password": cfg.get('password', ''),
     }
 
-    # TLS 设置
+    # TLS (sing-box 用 server_name，不是 sni)
     tls = {}
     if cfg.get('sni'):
-        tls['sni'] = cfg['sni']
+        tls['server_name'] = cfg['sni']
     if cfg.get('skip_cert_verify'):
         tls['insecure'] = True
     if cfg.get('alpn'):
@@ -61,6 +61,7 @@ def _build_hysteria2(address, port, cfg):
             alpn = [x.strip() for x in alpn.split(',')]
         tls['alpn'] = alpn
     if tls:
+        tls['enabled'] = True
         outbound['tls'] = tls
 
     # 带宽设置
@@ -90,10 +91,10 @@ def _build_tuic(address, port, cfg):
         "password": cfg.get('password', ''),
     }
 
-    # TLS 设置
+    # TLS (sing-box 用 server_name)
     tls = {}
     if cfg.get('sni'):
-        tls['sni'] = cfg['sni']
+        tls['server_name'] = cfg['sni']
     if cfg.get('skip_cert_verify'):
         tls['insecure'] = True
     if cfg.get('alpn'):
@@ -102,6 +103,7 @@ def _build_tuic(address, port, cfg):
             alpn = [x.strip() for x in alpn.split(',')]
         tls['alpn'] = alpn
     if tls:
+        tls['enabled'] = True
         outbound['tls'] = tls
 
     # 拥塞控制

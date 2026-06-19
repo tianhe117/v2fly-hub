@@ -351,9 +351,12 @@ def refresh_subscription(sub_id):
     # 解析节点（自动设置 bin_type）
     nodes = subscription.parse_nodes(result['content'])
 
-    # 应用关键字筛选
-    filter_kws = [k.strip() for k in sub['filter_keywords'].split(',') if k.strip()]
-    exclude_kws = [k.strip() for k in sub['exclude_keywords'].split(',') if k.strip()]
+    # 应用关键字筛选（换行或逗号分隔，OR 关系）
+    def _split_keywords(raw):
+        return [k.strip() for k in raw.replace('\n', ',').split(',') if k.strip()]
+
+    filter_kws = _split_keywords(sub['filter_keywords'])
+    exclude_kws = _split_keywords(sub['exclude_keywords'])
 
     if filter_kws:
         nodes = [n for n in nodes if any(kw.lower() in n['name'].lower() for kw in filter_kws)]
@@ -471,8 +474,41 @@ def api_delete_node(node_id):
 @app.route('/api/nodes/check', methods=['POST'])
 @auth_required
 def api_check_nodes():
-    """检测节点延迟 - 待重写"""
-    return jsonify({'success': False, 'message': 'checker is being rewritten'}), 501
+    """节点连通性检测 — 调用平台脚本执行 TCP ping 和 URL 测试
+
+    Body (JSON, optional):
+      node_ids: [1, 2, ...]   — 指定节点，不传则检测全部
+      check_type: 'tcp'|'url'|'both'  — 默认 'both'
+
+    Returns:
+      {success: true, results: [{node_id, name, tcp: {...}, url: {...}}]}
+    """
+    data = request.get_json(silent=True) or {}
+    node_ids = data.get('node_ids')
+    check_type = data.get('check_type', 'both')
+
+    if check_type not in ('tcp', 'url', 'both'):
+        return jsonify({'success': False, 'message': 'check_type must be tcp, url, or both'}), 400
+
+    conn = db.get_db()
+    if node_ids:
+        nodes = []
+        for nid in node_ids:
+            row = conn.execute('SELECT id, name FROM nodes WHERE id = ?', (nid,)).fetchone()
+            if row:
+                nodes.append({'id': row['id'], 'name': row['name']})
+    else:
+        rows = conn.execute('SELECT id, name FROM nodes').fetchall()
+        nodes = [{'id': r['id'], 'name': r['name']} for r in rows]
+    conn.close()
+
+    if not nodes:
+        return jsonify({'success': False, 'message': 'no nodes found'}), 404
+
+    from . import checker
+    results = checker.check_nodes([n['id'] for n in nodes], check_type)
+
+    return jsonify({'success': True, 'results': results, 'check_type': check_type})
 
 
 # ========== 日志 API ==========

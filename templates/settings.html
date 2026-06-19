@@ -49,7 +49,7 @@
         </div>
         <div class="field-row">
             <div class="field"><label>tcp timeout (sec)</label><input class="input" type="number" id="tcp_timeout" name="tcp_timeout"></div>
-            <div class="field"><label>curl timeout (sec)</label><input class="input" type="number" id="curl_timeout" name="curl_timeout"></div>
+            <div class="field"><label>url timeout (sec)</label><input class="input" type="number" id="curl_timeout" name="curl_timeout"></div>
         </div>
         <div class="field"><label>test url</label><input class="input" id="test_url" name="test_url"></div>
         <div class="field"><label><input type="checkbox" id="auto_failover" name="auto_failover"> enable auto-failover</label></div>
@@ -311,7 +311,7 @@ function prepareSave() {
         check_interval_normal: 'normal interval',
         check_interval_failover: 'failover interval',
         tcp_timeout: 'tcp timeout',
-        curl_timeout: 'curl timeout',
+        curl_timeout: 'url timeout',
         test_url: 'test url',
         auto_failover: 'auto-failover',
         web_port: 'port',
