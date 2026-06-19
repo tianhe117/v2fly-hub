@@ -151,37 +151,16 @@ function renderBins(data) {
     for (var name in data) {
         var s = data[name];
         var statusClass = s.status === 'running' ? 'ok' : 'error';
-        var startStopBtn = s.status === 'running'
-            ? '<button class="btn btn-sm btn-danger" onclick="binAction(\'' + name + '\', \'stop\')">stop</button>'
-            : '<button class="btn btn-sm btn-ok" onclick="binAction(\'' + name + '\', \'start\')">start</button>';
         html += '<div class="bin-row">';
         html += '<span class="bin-name">' + name + '</span>';
         html += '<span class="bin-version">' + (s.version || 'not found') + '</span>';
         html += '<span class="bin-status"><span class="status-dot ' + statusClass + '"></span>' + s.status + '</span>';
         html += '<span class="bin-actions">';
-        html += startStopBtn;
-        html += '<button class="btn btn-sm" onclick="binAction(\'' + name + '\', \'restart\')">restart</button>';
         html += '<button class="btn btn-sm" onclick="checkBinUpdate(\'' + name + '\')">check update</button>';
         html += '</span>';
         html += '</div>';
     }
     container.innerHTML = html;
-}
-
-// 二进制操作
-function binAction(binName, action) {
-    addLog('info', '[' + binName + '] ' + action + '...');
-    fetch('/api/bins/' + binName + '/' + action, {method: 'POST'})
-        .then(r => r.json())
-        .then(result => {
-            if (result.success) {
-                addLog('ok', '[' + binName + '] ' + action + ' success');
-                loadBinsStatus();
-            } else {
-                addLog('error', '[' + binName + '] ' + result.message);
-            }
-        })
-        .catch(err => addLog('error', '[' + binName + '] ' + err));
 }
 
 // 检查二进制更新
