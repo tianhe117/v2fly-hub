@@ -239,18 +239,6 @@ def api_upgrade_download():
     return Response(generate(), mimetype='text/event-stream')
 
 
-@app.route('/api/upgrade/restore', methods=['POST'])
-@auth_required
-def api_upgrade_restore():
-    """恢复备份版本"""
-    result = upgrade.restore_backup()
-    if result['success']:
-        # 重启 v2fly
-        restart_result = v2fly_manager.restart()
-        result['restart'] = restart_result
-    return jsonify(result)
-
-
 # ========== 危险操作 API ==========
 
 @app.route('/api/nodes/clear', methods=['POST'])

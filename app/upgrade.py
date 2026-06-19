@@ -4,7 +4,6 @@ import os
 import zipfile
 import tempfile
 import shutil
-from datetime import datetime
 
 GITHUB_API = 'https://api.github.com/repos/v2fly/v2ray-core/releases/latest'
 
@@ -12,11 +11,6 @@ GITHUB_API = 'https://api.github.com/repos/v2fly/v2ray-core/releases/latest'
 def get_bin_dir():
     """获取 bin 目录路径"""
     return os.path.join(os.path.dirname(__file__), '..', 'bin')
-
-
-def get_backup_dir():
-    """获取备份目录路径"""
-    return os.path.join(os.path.dirname(__file__), '..', 'bin', 'backup')
 
 
 def get_current_version():
@@ -87,79 +81,14 @@ def check_update():
         if current_version and latest_version:
             is_latest = current_version == latest_version
 
-        # 检查是否有备份
-        backup_info = get_backup_info()
-
         return {
             'success': True,
             'tag_name': data['tag_name'],
             'published_at': data['published_at'][:10],
             'assets': assets,
             'current_version': current_version,
-            'is_latest': is_latest,
-            'has_backup': backup_info is not None,
-            'backup_info': backup_info
+            'is_latest': is_latest
         }
-    except Exception as e:
-        return {'success': False, 'message': str(e)}
-
-
-def get_backup_info():
-    """获取备份信息"""
-    backup_dir = get_backup_dir()
-    info_file = os.path.join(backup_dir, 'backup_info.json')
-
-    if not os.path.exists(info_file):
-        return None
-
-    try:
-        with open(info_file, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-
-def backup_current():
-    """备份当前版本（只保留一个备份）"""
-    bin_dir = get_bin_dir()
-    backup_dir = get_backup_dir()
-
-    # 确定可执行文件名
-    import platform
-    exe_name = 'v2ray.exe' if platform.system() == 'Windows' else 'v2ray'
-    exe_path = os.path.join(bin_dir, exe_name)
-
-    if not os.path.exists(exe_path):
-        return {'success': False, 'message': 'current binary not found'}
-
-    try:
-        # 清空备份目录（只保留一个备份）
-        if os.path.exists(backup_dir):
-            shutil.rmtree(backup_dir)
-        os.makedirs(backup_dir, exist_ok=True)
-
-        # 获取当前版本
-        current_version = get_current_version() or 'unknown'
-
-        # 备份文件名
-        backup_name = f'{exe_name}.bak'
-        backup_path = os.path.join(backup_dir, backup_name)
-
-        # 复制文件
-        shutil.copy2(exe_path, backup_path)
-
-        # 保存备份信息
-        backup_info = {
-            'version': current_version,
-            'filename': backup_name,
-            'platform': get_platform_key(),
-            'created_at': datetime.now().isoformat()
-        }
-
-        with open(os.path.join(backup_dir, 'backup_info.json'), 'w') as f:
-            json.dump(backup_info, f, indent=2)
-
-        return {'success': True, 'backup_path': backup_path, 'version': current_version}
     except Exception as e:
         return {'success': False, 'message': str(e)}
 
@@ -190,18 +119,7 @@ def download_binary(progress_callback=None):
     if not asset:
         return {'success': False, 'message': f'no asset found for platform: {platform_key}'}
 
-    # 先备份当前版本（如果存在）
     bin_dir = get_bin_dir()
-    import platform
-    exe_name = 'v2ray.exe' if platform.system() == 'Windows' else 'v2ray'
-    exe_path = os.path.join(bin_dir, exe_name)
-    backup_result = None
-
-    if os.path.exists(exe_path):
-        backup_result = backup_current()
-        if not backup_result['success']:
-            return {'success': False, 'message': f'backup failed: {backup_result["message"]}'}
-
     try:
         # 下载到临时文件
         temp_dir = tempfile.mkdtemp()
@@ -245,7 +163,6 @@ def download_binary(progress_callback=None):
         return {
             'success': True,
             'version': update_info['tag_name'],
-            'backup_version': backup_result['version'] if backup_result else None,
             'path': bin_dir
         }
     except Exception as e:
@@ -254,38 +171,4 @@ def download_binary(progress_callback=None):
             shutil.rmtree(temp_dir, ignore_errors=True)
         except Exception:
             pass
-        return {'success': False, 'message': str(e)}
-
-
-def restore_backup():
-    """恢复备份版本"""
-    bin_dir = get_bin_dir()
-    backup_dir = get_backup_dir()
-
-    # 读取备份信息
-    backup_info = get_backup_info()
-    if not backup_info:
-        return {'success': False, 'message': 'no backup found'}
-
-    import platform
-    exe_name = 'v2ray.exe' if platform.system() == 'Windows' else 'v2ray'
-
-    backup_path = os.path.join(backup_dir, backup_info['filename'])
-    target_path = os.path.join(bin_dir, exe_name)
-
-    if not os.path.exists(backup_path):
-        return {'success': False, 'message': 'backup file not found'}
-
-    try:
-        # 恢复备份
-        shutil.copy2(backup_path, target_path)
-
-        # 清空备份目录
-        shutil.rmtree(backup_dir, ignore_errors=True)
-
-        return {
-            'success': True,
-            'restored_version': backup_info['version']
-        }
-    except Exception as e:
         return {'success': False, 'message': str(e)}

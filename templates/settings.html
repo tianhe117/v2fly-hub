@@ -19,7 +19,6 @@
 .msg-ok { color: #4caf50; font-size: 11px; margin-top: 4px; }
 .msg-error { color: #e53935; font-size: 11px; margin-top: 4px; }
 .msg-warn { color: #ffa726; font-size: 11px; margin-top: 4px; }
-.backup-info { font-size: 11px; color: #888; padding: 8px 0; border-top: 1px solid #f0f0f0; margin-top: 8px; }
 .change-list { font-size: 12px; max-height: 200px; overflow-y: auto; }
 .change-item { padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
 .change-item .label { color: #888; }
@@ -40,7 +39,6 @@
             <div>
                 <button class="btn btn-sm" id="checkUpdateBtn" onclick="checkUpdate()">check update</button>
                 <button class="btn btn-sm btn-ok" id="downloadBtn" style="display:none;" onclick="downloadBinary()">download latest</button>
-                <button class="btn btn-sm" id="restoreBtn" style="display:none;" onclick="restoreBackup()">restore backup</button>
             </div>
         </div>
         <div id="updateInfo" style="display:none;">
@@ -52,7 +50,6 @@
         <div id="latestMsg" style="display:none;" class="msg-ok">✓ already the latest version</div>
         <div class="progress-bar" id="downloadProgress"><div class="fill" id="downloadFill"></div></div>
         <div id="downloadStatus" style="font-size:11px;color:#888;margin-top:4px;"></div>
-        <div id="backupInfo" style="display:none;" class="backup-info"></div>
         <div class="field" style="margin-top:12px;">
             <label>executable path</label>
             <input class="input" id="v2fly_bin_path" name="v2fly_bin_path">
@@ -388,8 +385,6 @@ function checkUpdate() {
     document.getElementById('updateInfo').style.display = 'none';
     document.getElementById('downloadBtn').style.display = 'none';
     document.getElementById('latestMsg').style.display = 'none';
-    document.getElementById('restoreBtn').style.display = 'none';
-    document.getElementById('backupInfo').style.display = 'none';
 
     fetch('/api/upgrade/check')
         .then(r => r.json())
@@ -398,13 +393,6 @@ function checkUpdate() {
             btn.textContent = 'check update';
 
             if (data.success) {
-                if (data.has_backup && data.backup_info) {
-                    var backupInfo = document.getElementById('backupInfo');
-                    backupInfo.innerHTML = 'backup found: v' + data.backup_info.version + ' (' + data.backup_info.created_at + ')';
-                    backupInfo.style.display = '';
-                    document.getElementById('restoreBtn').style.display = '';
-                }
-
                 if (data.is_latest) {
                     document.getElementById('latestMsg').style.display = '';
                     addLog('ok', '[upgrade] already the latest version: ' + data.current_version);
@@ -442,7 +430,7 @@ function downloadBinary() {
     btn.textContent = 'downloading...';
     bar.style.display = '';
     fill.style.width = '0%';
-    status.textContent = 'backing up current version, then downloading...';
+    status.textContent = 'downloading...';
     addLog('info', '[upgrade] starting upgrade...');
 
     var evtSource = new EventSource('/api/upgrade/download');
@@ -455,7 +443,7 @@ function downloadBinary() {
             evtSource.close();
             fill.style.width = '100%';
             status.textContent = 'installed, restarting...';
-            addLog('ok', '[upgrade] download complete, backup saved');
+            addLog('ok', '[upgrade] download complete');
 
             setTimeout(function() {
                 btn.style.display = 'none';
@@ -490,35 +478,6 @@ function downloadBinary() {
         status.textContent = '';
         addLog('error', '[upgrade] connection lost');
     };
-}
-
-// 恢复备份
-function restoreBackup() {
-    var btn = document.getElementById('restoreBtn');
-    btn.disabled = true;
-    btn.textContent = 'restoring...';
-    addLog('info', '[upgrade] restoring backup...');
-
-    fetch('/api/upgrade/restore', {method: 'POST'})
-        .then(r => r.json())
-        .then(result => {
-            btn.disabled = false;
-            btn.textContent = 'restore backup';
-
-            if (result.success) {
-                addLog('ok', '[upgrade] restored to v' + result.restored_version);
-                document.getElementById('restoreBtn').style.display = 'none';
-                document.getElementById('backupInfo').style.display = 'none';
-                loadSystemInfo();
-            } else {
-                addLog('error', '[upgrade] restore failed: ' + result.message);
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.textContent = 'restore backup';
-            addLog('error', '[upgrade] restore failed: ' + err);
-        });
 }
 
 // 页面加载时初始化
