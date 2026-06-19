@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block title %}outbounds - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
 <button class="btn btn-sm" onclick="document.getElementById('addModal').classList.add('show')">+ add outbound</button>
@@ -69,7 +68,6 @@
 </div>
 {% endblock %}
 
-{% block statusbar_left %}<span class="status-dot ok"></span>ready{% endblock %}
 {% block statusbar_right %}3 outbounds{% endblock %}
 
 {% block modals %}

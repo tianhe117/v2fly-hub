@@ -232,8 +232,9 @@ def download_binary(progress_callback=None):
 
         with zipfile.ZipFile(zip_path, 'r') as zf:
             for name in zf.namelist():
-                if name.endswith('.exe') or name == 'v2ray':
-                    target_path = os.path.join(bin_dir, os.path.basename(name))
+                basename = os.path.basename(name)
+                if basename in ('v2ray.exe', 'v2ray'):
+                    target_path = os.path.join(bin_dir, basename)
                     with zf.open(name) as src, open(target_path, 'wb') as dst:
                         dst.write(src.read())
                     break
