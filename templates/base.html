@@ -138,7 +138,7 @@
         </div>
     </div>
     <div class="statusbar">
-        <span>{% block statusbar_left %}<span class="status-dot idle" id="globalStatusDot"></span><span id="globalStatusText">checking...</span>{% endblock %}</span>
+        <span>{% block statusbar_left %}ready{% endblock %}</span>
         <span>{% block statusbar_right %}{% endblock %}</span>
     </div>
 
@@ -208,38 +208,9 @@
             }
         });
 
-        // 检查 Xray 状态并更新状态栏
-        function checkXrayStatus() {
-            fetch('/api/system/info')
-                .then(r => r.json())
-                .then(data => {
-                    var dot = document.getElementById('globalStatusDot');
-                    var text = document.getElementById('globalStatusText');
-                    if (!dot || !text) return;
-                    if (data.xray_status === 'running') {
-                        dot.className = 'status-dot ok';
-                        text.textContent = 'Xray running';
-                    } else {
-                        dot.className = 'status-dot error';
-                        text.textContent = 'Xray stopped';
-                    }
-                })
-                .catch(function() {
-                    var dot = document.getElementById('globalStatusDot');
-                    var text = document.getElementById('globalStatusText');
-                    if (dot) dot.className = 'status-dot error';
-                    if (text) text.textContent = 'connection error';
-                });
-        }
-
         // 每 2 秒轮询一次日志
         setInterval(fetchLogs, 2000);
         fetchLogs();
-
-        // 页面加载时检查状态，之后每 10 秒刷新
-        checkXrayStatus();
-        setInterval(checkXrayStatus, 10000);
-
         {% block extra_js %}{% endblock %}
     </script>
 </body>

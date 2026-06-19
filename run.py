@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Xray-Hub - Entry point"""
+"""Xray-hub - Entry point"""
 
 import logging
 from app.main import app
