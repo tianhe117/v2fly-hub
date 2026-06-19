@@ -161,6 +161,7 @@ function renderBins(data) {
         html += '<span class="bin-actions">';
         html += startStopBtn;
         html += '<button class="btn btn-sm" onclick="binAction(\'' + name + '\', \'restart\')">restart</button>';
+        html += '<button class="btn btn-sm" onclick="checkBinUpdate(\'' + name + '\')">check update</button>';
         html += '</span>';
         html += '</div>';
     }
@@ -175,6 +176,44 @@ function binAction(binName, action) {
         .then(result => {
             if (result.success) {
                 addLog('ok', '[' + binName + '] ' + action + ' success');
+                loadBinsStatus();
+            } else {
+                addLog('error', '[' + binName + '] ' + result.message);
+            }
+        })
+        .catch(err => addLog('error', '[' + binName + '] ' + err));
+}
+
+// 检查二进制更新
+function checkBinUpdate(binName) {
+    addLog('info', '[' + binName + '] checking update...');
+    fetch('/api/upgrade/check/' + binName)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (data.is_latest) {
+                    addLog('ok', '[' + binName + '] already latest: ' + data.current_version);
+                } else {
+                    addLog('ok', '[' + binName + '] new version: ' + data.tag_name + ' (current: ' + data.current_version + ')');
+                    if (confirm('Download ' + binName + ' ' + data.tag_name + '?')) {
+                        downloadBinBinary(binName);
+                    }
+                }
+            } else {
+                addLog('error', '[' + binName + '] ' + data.message);
+            }
+        })
+        .catch(err => addLog('error', '[' + binName + '] ' + err));
+}
+
+// 下载二进制
+function downloadBinBinary(binName) {
+    addLog('info', '[' + binName + '] downloading...');
+    fetch('/api/upgrade/download/' + binName)
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                addLog('ok', '[' + binName + '] upgraded to ' + result.version);
                 loadBinsStatus();
             } else {
                 addLog('error', '[' + binName + '] ' + result.message);

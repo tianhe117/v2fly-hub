@@ -202,29 +202,27 @@ def api_bin_restart(bin_name):
 
 # ========== 升级 API ==========
 
-@app.route('/api/upgrade/check', methods=['GET'])
+@app.route('/api/upgrade/check/<bin_name>', methods=['GET'])
 @auth_required
-def api_upgrade_check():
-    """检查更新"""
-    result = upgrade.check_update()
+def api_upgrade_check(bin_name):
+    """检查指定二进制的更新"""
+    if bin_name not in upgrade.BIN_REPOS:
+        return jsonify({'success': False, 'message': f'unknown binary: {bin_name}'}), 400
+    result = upgrade.check_update(bin_name)
     return jsonify(result)
 
 
-@app.route('/api/upgrade/download', methods=['GET'])
+@app.route('/api/upgrade/download/<bin_name>', methods=['GET'])
 @auth_required
-def api_upgrade_download():
-    """下载更新（SSE 流式响应）"""
+def api_upgrade_download(bin_name):
+    """下载指定二进制的更新（SSE 流式响应）"""
+    if bin_name not in upgrade.BIN_REPOS:
+        return jsonify({'success': False, 'message': f'unknown binary: {bin_name}'}), 400
 
     def generate():
-        def progress(downloaded, total):
-            pct = int(downloaded * 100 / total) if total > 0 else 0
-            yield f"data: {json.dumps({'type': 'progress', 'pct': pct})}\n\n"
-
-        result = upgrade.download_binary(lambda d, t: None)
+        result = upgrade.download_binary(bin_name)
 
         if result['success']:
-            # 重启对应二进制
-            bin_name = result.get('bin_name', 'xray')
             restart_result = bin_manager.restart(bin_name)
             yield f"data: {json.dumps({'type': 'complete', 'version': result['version'], 'restart': restart_result})}\n\n"
         else:

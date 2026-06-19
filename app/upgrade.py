@@ -5,7 +5,21 @@ import zipfile
 import tempfile
 import shutil
 
-GITHUB_API = 'https://api.github.com/repos/v2fly/v2ray-core/releases/latest'
+# 二进制 GitHub 仓库配置
+BIN_REPOS = {
+    'xray': {
+        'repo': 'XTLS/Xray-core',
+        'exe_names': ['xray.exe', 'xray'],
+    },
+    'sslocal': {
+        'repo': 'shadowsocks/shadowsocks-rust',
+        'exe_names': ['sslocal.exe', 'sslocal'],
+    },
+    'sing-box': {
+        'repo': 'SagerNet/sing-box',
+        'exe_names': ['sing-box.exe', 'sing-box'],
+    },
+}
 
 
 def get_bin_dir():
@@ -13,18 +27,18 @@ def get_bin_dir():
     return os.path.join(os.path.dirname(__file__), '..', 'bin')
 
 
-def get_current_version():
-    """获取当前版本号（从二进制文件解析）"""
-    from .v2fly_manager import get_version
-    version_str = get_version()
+def get_current_version(bin_name='xray'):
+    """获取当前版本号"""
+    from . import bin_manager
+    version_str = bin_manager.get_version(bin_name)
     if not version_str or version_str == 'unknown':
         return None
-    # 解析版本号，格式如 "V2Ray 5.49.0 (V2Fly, ...)"
+    # 尝试解析版本号
     try:
         parts = version_str.split()
         for part in parts:
             if part[0].isdigit():
-                return part
+                return part.lstrip('v')
     except Exception:
         pass
     return None
@@ -32,28 +46,33 @@ def get_current_version():
 
 def get_platform_key():
     """获取平台标识"""
-    from .v2fly_manager import get_platform
-    return get_platform()['key']
+    from . import bin_manager
+    return bin_manager.get_platform()['key']
 
 
 def check_platform_supported():
     """检查当前平台是否支持"""
-    from .v2fly_manager import get_platform
-    info = get_platform()
+    from . import bin_manager
+    info = bin_manager.get_platform()
     return info['supported'], info['message'], info['key']
 
 
-def check_update():
-    """检查最新版本"""
-    # 先检查平台支持
+def check_update(bin_name='xray'):
+    """检查指定二进制的最新版本"""
+    repo_info = BIN_REPOS.get(bin_name)
+    if not repo_info:
+        return {'success': False, 'message': f'unknown binary: {bin_name}'}
+
     supported, message, platform_key = check_platform_supported()
     if not supported:
         return {'success': False, 'message': message, 'error_type': 'platform_not_supported'}
 
+    github_api = f"https://api.github.com/repos/{repo_info['repo']}/releases/latest"
+
     try:
         req = urllib.request.Request(
-            GITHUB_API,
-            headers={'User-Agent': 'v2fly-manager'}
+            github_api,
+            headers={'User-Agent': 'ProxyHub'}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
@@ -62,9 +81,11 @@ def check_update():
         assets = []
         for asset in data.get('assets', []):
             name = asset['name']
-            # 只保留需要的平台
-            if 'linux-64' in name or 'windows-64' in name:
-                platform = 'linux-64' if 'linux-64' in name else 'windows-64'
+            if 'linux-64' in name or 'windows-64' in name or 'linux-amd64' in name or 'windows-amd64' in name:
+                if 'linux' in name:
+                    platform = 'linux-64'
+                else:
+                    platform = 'windows-64'
                 assets.append({
                     'name': name,
                     'platform': platform,
@@ -72,17 +93,16 @@ def check_update():
                     'size': asset['size']
                 })
 
-        # 获取当前版本
-        current_version = get_current_version()
+        current_version = get_current_version(bin_name)
         latest_version = data['tag_name'].lstrip('v')
 
-        # 判断是否已是最新版
         is_latest = False
         if current_version and latest_version:
             is_latest = current_version == latest_version
 
         return {
             'success': True,
+            'bin_name': bin_name,
             'tag_name': data['tag_name'],
             'published_at': data['published_at'][:10],
             'assets': assets,
@@ -93,19 +113,20 @@ def check_update():
         return {'success': False, 'message': str(e)}
 
 
-def download_binary(progress_callback=None):
-    """下载最新版本"""
-    # 检查平台支持
+def download_binary(bin_name='xray', progress_callback=None):
+    """下载指定二进制的最新版本"""
+    repo_info = BIN_REPOS.get(bin_name)
+    if not repo_info:
+        return {'success': False, 'message': f'unknown binary: {bin_name}'}
+
     supported, message, platform_key = check_platform_supported()
     if not supported:
         return {'success': False, 'message': message}
 
-    # 先检查更新
-    update_info = check_update()
+    update_info = check_update(bin_name)
     if not update_info['success']:
         return update_info
 
-    # 如果已是最新版，返回提示
     if update_info.get('is_latest'):
         return {'success': False, 'message': 'already_latest', 'current': update_info['current_version']}
 
@@ -121,16 +142,15 @@ def download_binary(progress_callback=None):
 
     bin_dir = get_bin_dir()
     try:
-        # 下载到临时文件
         temp_dir = tempfile.mkdtemp()
         zip_path = os.path.join(temp_dir, asset['name'])
 
         req = urllib.request.Request(
             asset['url'],
-            headers={'User-Agent': 'v2fly-manager'}
+            headers={'User-Agent': 'ProxyHub'}
         )
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             total_size = int(resp.headers.get('Content-Length', 0))
             downloaded = 0
             chunk_size = 8192
@@ -145,28 +165,28 @@ def download_binary(progress_callback=None):
                     if progress_callback and total_size > 0:
                         progress_callback(downloaded, total_size)
 
-        # 解压到 bin 目录（只提取 v2ray 可执行文件）
+        # 解压到 bin 目录
         os.makedirs(bin_dir, exist_ok=True)
+        exe_names = repo_info['exe_names']
 
         with zipfile.ZipFile(zip_path, 'r') as zf:
             for name in zf.namelist():
                 basename = os.path.basename(name)
-                if basename in ('v2ray.exe', 'v2ray'):
+                if basename in exe_names:
                     target_path = os.path.join(bin_dir, basename)
                     with zf.open(name) as src, open(target_path, 'wb') as dst:
                         dst.write(src.read())
                     break
 
-        # 清理临时文件
         shutil.rmtree(temp_dir, ignore_errors=True)
 
         return {
             'success': True,
+            'bin_name': bin_name,
             'version': update_info['tag_name'],
             'path': bin_dir
         }
     except Exception as e:
-        # 清理临时文件
         try:
             shutil.rmtree(temp_dir, ignore_errors=True)
         except Exception:
