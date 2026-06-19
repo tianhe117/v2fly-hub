@@ -2,7 +2,7 @@
 {% block title %}dashboard - {{ app_name }}{% endblock %}
 
 {% block navbar_actions %}
-<span style="font-size:11px;color:#888;">Xray: <span style="color:#4caf50;">running</span> pid 12345</span>
+<span style="font-size:11px;color:#888;">v2fly: <span style="color:#4caf50;">running</span> pid 12345</span>
 <button class="btn btn-sm">restart</button>
 <button class="btn btn-sm">stop</button>
 {% endblock %}
@@ -28,7 +28,7 @@
 
 <div class="stats">
     <div class="stat-item">
-        <div class="stat-label">Xray</div>
+        <div class="stat-label">v2fly</div>
         <div class="stat-value ok">running</div>
     </div>
     <div class="stat-item">
@@ -120,7 +120,7 @@
 </div>
 {% endblock %}
 
-{% block statusbar_left %}<span class="status-dot ok"></span>Xray running{% endblock %}
+{% block statusbar_left %}<span class="status-dot ok"></span>v2fly running{% endblock %}
 {% block statusbar_right %}3 services active &middot; last check: 10s ago{% endblock %}
 
 {% block modals %}

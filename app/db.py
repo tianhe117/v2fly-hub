@@ -2,11 +2,11 @@ import sqlite3
 import os
 
 # 数据库路径：相对于项目根目录的 data/ 目录
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'xray.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'v2ray.db')
 
 DEFAULT_SETTINGS = {
-    'xray_bin_path': './bin/xray.exe',
-    'xray_config_dir': './config',
+    'v2fly_bin_path': './bin/v2ray.exe',
+    'v2fly_config_dir': './config',
     'check_interval_normal': '240',
     'check_interval_failover': '30',
     'tcp_timeout': '3',
@@ -101,7 +101,6 @@ def get_setting(key):
     conn = get_db()
     row = conn.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
     conn.close()
-
     if row:
         return row['value']
     return DEFAULT_SETTINGS.get(key)

@@ -2,7 +2,7 @@
 
 ## Context
 
-当前架构：OpenWrt VM (192.168.100.1:1080) 提供 socks 代理，解析机场订阅并转发流量；Xray 通过 3 个配置文件分别提供：
+当前架构：OpenWrt VM (192.168.100.1:1080) 提供 socks 代理，解析机场订阅并转发流量；v2ray 通过 3 个配置文件分别提供：
 - SS (666) → socks 出站（经订阅节点翻墙）
 - VMess+WS (24811) → socks 出站（经订阅节点翻墙）
 - SS (704) → freedom 出站（国外回国反向代理）
@@ -18,13 +18,13 @@
 ## 项目结构
 
 ```
-Xray-webui/
+v2ray-webui/
 ├── run.py                  # 入口文件
 ├── app/                    # Python 应用包
 │   ├── __init__.py
 │   ├── main.py             # Flask 应用（页面路由 + API）
 │   ├── db.py               # 数据库操作（SQLite）
-│   ├── xray_manager.py    # V2fly 进程管理
+│   ├── v2fly_manager.py    # V2fly 进程管理
 │   └── upgrade.py          # GitHub 二进制升级
 ├── templates/              # Jinja2 HTML 模板
 │   ├── base.html           # 共享布局（导航栏、侧边栏、日志面板）
@@ -118,7 +118,7 @@ Xray-webui/
   - 显示当前版本、平台（自动检测 linux-x86_64 / windows-x86_64）
   - check update 按钮：从 GitHub releases API 获取最新版本
   - download latest 按钮：选择平台后下载对应 zip，解压到 bin/ 目录
-  - 下载源：`https://github.com/Xray/Xray-core/releases`
+  - 下载源：`https://github.com/v2fly/v2ray-core/releases`
   - 下载后自动重启 V2fly 进程
   - 显示下载进度条
 - V2fly 可执行文件路径、配置目录
@@ -240,11 +240,11 @@ POST /api/nodes/<id>/select      # 手动选择为当前节点
 POST /api/nodes/check            # 手动检测（body: {node_ids: [...]} 或 {all: true}）
 POST /api/outbound-nodes/reorder # 更新节点优先级
 
-# Xray
-GET  /api/Xray/status           # V2fly 状态
-POST /api/Xray/start            # 启动 V2fly
-POST /api/Xray/stop             # 停止 V2fly
-POST /api/Xray/restart          # 重启 V2fly
+# v2fly
+GET  /api/v2fly/status           # V2fly 状态
+POST /api/v2fly/start            # 启动 V2fly
+POST /api/v2fly/stop             # 停止 V2fly
+POST /api/v2fly/restart          # 重启 V2fly
 
 # 设置
 GET  /api/settings               # 获取设置

@@ -6,7 +6,7 @@ import tempfile
 import shutil
 from datetime import datetime
 
-GITHUB_API = 'https://api.github.com/repos/XTLS/Xray-core/releases/latest'
+GITHUB_API = 'https://api.github.com/repos/v2fly/v2ray-core/releases/latest'
 
 
 def get_bin_dir():
@@ -21,11 +21,11 @@ def get_backup_dir():
 
 def get_current_version():
     """获取当前版本号（从二进制文件解析）"""
-    from .xray_manager import get_version
+    from .v2fly_manager import get_version
     version_str = get_version()
     if not version_str or version_str == 'unknown':
         return None
-    # 解析版本号，格式如 "Xray 1.8.0 (Xray, ...)"
+    # 解析版本号，格式如 "V2Ray 5.49.0 (V2Fly, ...)"
     try:
         parts = version_str.split()
         for part in parts:
@@ -38,13 +38,13 @@ def get_current_version():
 
 def get_platform_key():
     """获取平台标识"""
-    from .xray_manager import get_platform
+    from .v2fly_manager import get_platform
     return get_platform()['key']
 
 
 def check_platform_supported():
     """检查当前平台是否支持"""
-    from .xray_manager import get_platform
+    from .v2fly_manager import get_platform
     info = get_platform()
     return info['supported'], info['message'], info['key']
 
@@ -59,7 +59,7 @@ def check_update():
     try:
         req = urllib.request.Request(
             GITHUB_API,
-            headers={'User-Agent': 'Xray-hub'}
+            headers={'User-Agent': 'v2fly-manager'}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
@@ -68,8 +68,8 @@ def check_update():
         assets = []
         for asset in data.get('assets', []):
             name = asset['name']
-            # 只保留需要的平台（Xray 命名格式：Xray-windows-64.zip 或 Xray-linux-64.zip）
-            if 'windows-64' in name or 'linux-64' in name:
+            # 只保留需要的平台
+            if 'linux-64' in name or 'windows-64' in name:
                 platform = 'linux-64' if 'linux-64' in name else 'windows-64'
                 assets.append({
                     'name': name,
@@ -126,7 +126,7 @@ def backup_current():
 
     # 确定可执行文件名
     import platform
-    exe_name = 'xray.exe' if platform.system() == 'Windows' else 'xray'
+    exe_name = 'v2ray.exe' if platform.system() == 'Windows' else 'v2ray'
     exe_path = os.path.join(bin_dir, exe_name)
 
     if not os.path.exists(exe_path):
@@ -193,7 +193,7 @@ def download_binary(progress_callback=None):
     # 先备份当前版本（如果存在）
     bin_dir = get_bin_dir()
     import platform
-    exe_name = 'xray.exe' if platform.system() == 'Windows' else 'xray'
+    exe_name = 'v2ray.exe' if platform.system() == 'Windows' else 'v2ray'
     exe_path = os.path.join(bin_dir, exe_name)
     backup_result = None
 
@@ -209,7 +209,7 @@ def download_binary(progress_callback=None):
 
         req = urllib.request.Request(
             asset['url'],
-            headers={'User-Agent': 'Xray-hub'}
+            headers={'User-Agent': 'v2fly-manager'}
         )
 
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -227,14 +227,13 @@ def download_binary(progress_callback=None):
                     if progress_callback and total_size > 0:
                         progress_callback(downloaded, total_size)
 
-        # 解压到 bin 目录（只提取 xray 可执行文件）
+        # 解压到 bin 目录（只提取 v2ray 可执行文件）
         os.makedirs(bin_dir, exist_ok=True)
 
         with zipfile.ZipFile(zip_path, 'r') as zf:
             for name in zf.namelist():
-                basename = os.path.basename(name)
-                if basename in ('xray.exe', 'xray'):
-                    target_path = os.path.join(bin_dir, basename)
+                if name.endswith('.exe') or name == 'v2ray':
+                    target_path = os.path.join(bin_dir, os.path.basename(name))
                     with zf.open(name) as src, open(target_path, 'wb') as dst:
                         dst.write(src.read())
                     break
@@ -268,7 +267,7 @@ def restore_backup():
         return {'success': False, 'message': 'no backup found'}
 
     import platform
-    exe_name = 'xray.exe' if platform.system() == 'Windows' else 'xray'
+    exe_name = 'v2ray.exe' if platform.system() == 'Windows' else 'v2ray'
 
     backup_path = os.path.join(backup_dir, backup_info['filename'])
     target_path = os.path.join(bin_dir, exe_name)

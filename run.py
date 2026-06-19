@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Xray-hub - Entry point"""
+"""V2Fly Manager - Entry point"""
 
 import logging
 from app.main import app

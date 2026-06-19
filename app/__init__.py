@@ -1,1 +1,1 @@
-# Xray-hub app package
+# v2fly-manager app package

@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, Response, session, r
 from datetime import datetime
 from functools import wraps
 from . import db
-from . import xray_manager
+from . import v2fly_manager
 from . import upgrade
 from . import subscription
 from . import checker
@@ -14,7 +14,7 @@ import os
 app = Flask(__name__, template_folder='../templates')
 app.secret_key = os.urandom(24)
 
-APP_NAME = 'Xray-hub'
+APP_NAME = 'V2Fly-hub'
 boot_time = datetime.now().strftime('%H:%M:%S')
 
 
@@ -173,36 +173,36 @@ def api_reset_settings():
     return jsonify({'success': True})
 
 
-# ========== Xray 管理 API ==========
+# ========== v2fly 管理 API ==========
 
-@app.route('/api/xray/status', methods=['GET'])
+@app.route('/api/v2fly/status', methods=['GET'])
 @auth_required
-def api_xray_status():
-    """获取 Xray 状态"""
-    return jsonify(xray_manager.get_status())
+def api_v2fly_status():
+    """获取 v2fly 状态"""
+    return jsonify(v2fly_manager.get_status())
 
 
-@app.route('/api/xray/start', methods=['POST'])
+@app.route('/api/v2fly/start', methods=['POST'])
 @auth_required
-def api_xray_start():
-    """启动 Xray"""
-    result = xray_manager.start()
+def api_v2fly_start():
+    """启动 v2fly"""
+    result = v2fly_manager.start()
     return jsonify(result)
 
 
-@app.route('/api/xray/stop', methods=['POST'])
+@app.route('/api/v2fly/stop', methods=['POST'])
 @auth_required
-def api_xray_stop():
-    """停止 Xray"""
-    result = xray_manager.stop()
+def api_v2fly_stop():
+    """停止 v2fly"""
+    result = v2fly_manager.stop()
     return jsonify(result)
 
 
-@app.route('/api/xray/restart', methods=['POST'])
+@app.route('/api/v2fly/restart', methods=['POST'])
 @auth_required
-def api_xray_restart():
-    """重启 Xray"""
-    result = xray_manager.restart()
+def api_v2fly_restart():
+    """重启 v2fly"""
+    result = v2fly_manager.restart()
     return jsonify(result)
 
 
@@ -229,8 +229,8 @@ def api_upgrade_download():
         result = upgrade.download_binary(lambda d, t: None)
 
         if result['success']:
-            # 重启 Xray
-            restart_result = xray_manager.restart()
+            # 重启 v2fly
+            restart_result = v2fly_manager.restart()
             yield f"data: {json.dumps({'type': 'complete', 'version': result['version'], 'restart': restart_result})}\n\n"
         else:
             error_type = result.get('error_type', 'unknown')
@@ -245,8 +245,8 @@ def api_upgrade_restore():
     """恢复备份版本"""
     result = upgrade.restore_backup()
     if result['success']:
-        # 重启 Xray
-        restart_result = xray_manager.restart()
+        # 重启 v2fly
+        restart_result = v2fly_manager.restart()
         result['restart'] = restart_result
     return jsonify(result)
 
@@ -280,13 +280,13 @@ def api_system_info():
     db_path = db.DB_PATH
     db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
 
-    status = xray_manager.get_status()
+    status = v2fly_manager.get_status()
 
     return jsonify({
-        'xray_version': status['version'],
-        'xray_status': status['status'],
-        'xray_pid': status['pid'],
-        'xray_uptime': status['uptime'],
+        'v2fly_version': status['version'],
+        'v2fly_status': status['status'],
+        'v2fly_pid': status['pid'],
+        'v2fly_uptime': status['uptime'],
         'platform': status['platform'],
         'platform_supported': status['platform_supported'],
         'platform_message': status['platform_message'],
