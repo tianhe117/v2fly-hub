@@ -20,6 +20,8 @@
     .flow-box { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 3px; flex: 1; }
     .flow-label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 2px; }
     .flow-arrow { color: #bbb; font-size: 16px; }
+    .auto-start-label { font-size: 11px; color: #888; display: flex; align-items: center; gap: 3px; cursor: pointer; margin-right: 4px; }
+    .auto-start-label input { margin: 0; }
 </style>
 
 <div class="stats">
@@ -56,6 +58,8 @@
 {% block statusbar_right %}{% endblock %}
 
 {% block extra_js %}
+var editingServiceId = null;
+
 function escapeHtml(text) {
     if (!text) return '';
     var div = document.createElement('div');
@@ -122,6 +126,7 @@ function loadServices() {
             if (svc.outbound_type === 'auto' && svc.outbound_pool) {
                 outboundDesc += ' (' + svc.outbound_pool.length + ' nodes)';
             }
+            var autoStartChecked = svc.auto_start ? ' checked' : '';
             return '<div class="service-card">' +
                 '<div class="service-header">' +
                     '<div>' +
@@ -130,10 +135,14 @@ function loadServices() {
                         '<span class="service-meta"> port ' + svc.inbound_port + ' &middot; ' + svc.inbound_protocol + '</span>' +
                     '</div>' +
                     '<div class="service-actions">' +
+                        '<label class="auto-start-label" title="auto start on boot">' +
+                            '<input type="checkbox"' + autoStartChecked + ' onchange="toggleAutoStart(' + svc.id + ', this.checked)"> auto' +
+                        '</label>' +
                         '<button class="btn btn-sm" onclick="serviceAction(' + svc.id + ', \'start\')">start</button>' +
                         '<button class="btn btn-sm" onclick="serviceAction(' + svc.id + ', \'stop\')">stop</button>' +
                         '<button class="btn btn-sm" onclick="serviceAction(' + svc.id + ', \'restart\')">restart</button>' +
-                        '<button class="btn btn-sm" onclick="deleteService(' + svc.id + ')">del</button>' +
+                        '<button class="btn btn-sm" onclick="editService(' + svc.id + ')">edit</button>' +
+                        '<button class="btn btn-danger btn-sm" onclick="deleteService(' + svc.id + ', \'' + escapeHtml(svc.name).replace(/'/g, "\\'") + '\')">del</button>' +
                     '</div>' +
                 '</div>' +
                 '<div class="service-body">' +
@@ -150,27 +159,79 @@ function loadServices() {
 
 // 服务操作
 function serviceAction(id, action) {
+    addLog('info', '[service] ' + action + '...');
     fetch('/api/services/' + id + '/' + action, {method: 'POST'})
         .then(r => r.json())
         .then(data => {
-            if (data.success) loadServices();
-            else alert(data.message || 'action failed');
+            if (data.success) {
+                addLog('ok', '[service] ' + action + ' success');
+                loadServices();
+            } else {
+                addLog('error', '[service] ' + (data.message || 'action failed'));
+                showMessage(data.message || 'action failed');
+            }
+        })
+        .catch(err => {
+            addLog('error', '[service] ' + err);
+            showMessage(err.toString());
         });
 }
 
+// 显示消息弹窗
+function showMessage(msg) {
+    document.getElementById('messageText').textContent = msg;
+    document.getElementById('messageModal').classList.add('show');
+}
+
+// 切换 auto-start
+function toggleAutoStart(id, enabled) {
+    fetch('/api/services/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto_start: enabled ? 1 : 0})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            addLog('ok', '[service] auto-start ' + (enabled ? 'enabled' : 'disabled'));
+        }
+    });
+}
+
 // 删除服务
-function deleteService(id) {
-    if (!confirm('Delete this service?')) return;
-    fetch('/api/services/' + id, {method: 'DELETE'})
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) loadServices();
-        });
+function deleteService(id, name) {
+    document.getElementById('deleteMessage').textContent = 'Delete service "' + name + '"?';
+    document.getElementById('deleteConfirmBtn').onclick = function() {
+        document.getElementById('deleteModal').classList.remove('show');
+        fetch('/api/services/' + id, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) loadServices();
+            });
+    };
+    document.getElementById('deleteModal').classList.add('show');
 }
 
 // 打开添加服务模态框
 function openAddServiceModal() {
-    // 加载 inbounds 和 outbounds 选项
+    editingServiceId = null;
+    document.getElementById('serviceModalTitle').textContent = 'add service';
+    document.getElementById('serviceModalSubmitBtn').textContent = 'create';
+    document.getElementById('modalName').value = '';
+    loadServiceModalOptions(null, null);
+}
+
+// 编辑服务
+function editService(id) {
+    fetch('/api/services/' + id).then(r => r.json()).then(svc => {
+        editingServiceId = id;
+        document.getElementById('serviceModalTitle').textContent = 'edit service';
+        document.getElementById('serviceModalSubmitBtn').textContent = 'update';
+        document.getElementById('modalName').value = svc.name;
+        loadServiceModalOptions(svc.inbound_id, svc.outbound_id);
+    });
+}
+
+// 加载弹窗选项
+function loadServiceModalOptions(selectedInbound, selectedOutbound) {
     Promise.all([
         fetch('/api/inbounds').then(r => r.json()),
         fetch('/api/outbounds').then(r => r.json())
@@ -178,48 +239,86 @@ function openAddServiceModal() {
         var inSelect = document.getElementById('modalInbound');
         var outSelect = document.getElementById('modalOutbound');
         inSelect.innerHTML = inbounds.map(function(ib) {
-            return '<option value="' + ib.id + '">' + escapeHtml(ib.name) + ' (' + ib.protocol + ' :' + ib.port + ')</option>';
+            var selected = ib.id === selectedInbound ? ' selected' : '';
+            return '<option value="' + ib.id + '"' + selected + '>' + escapeHtml(ib.name) + ' (' + ib.protocol + ' :' + ib.port + ')</option>';
         }).join('');
         outSelect.innerHTML = outbounds.map(function(ob) {
-            return '<option value="' + ob.id + '">' + escapeHtml(ob.name) + ' (' + ob.type + ')</option>';
+            var selected = ob.id === selectedOutbound ? ' selected' : '';
+            return '<option value="' + ob.id + '"' + selected + '>' + escapeHtml(ob.name) + ' (' + ob.type + ')</option>';
         }).join('');
-        document.getElementById('addModal').classList.add('show');
+        document.getElementById('serviceModal').classList.add('show');
     });
 }
 
-// 创建服务
-function createService() {
+// 提交服务（创建或更新）
+function submitService() {
     var name = document.getElementById('modalName').value.trim();
     var inboundId = parseInt(document.getElementById('modalInbound').value);
     var outboundId = parseInt(document.getElementById('modalOutbound').value);
-    if (!name) { alert('name required'); return; }
-    fetch('/api/services', {
-        method: 'POST',
+    if (!name) { showMessage('name required'); return; }
+
+    var url, method;
+    if (editingServiceId) {
+        url = '/api/services/' + editingServiceId;
+        method = 'PUT';
+    } else {
+        url = '/api/services';
+        method = 'POST';
+    }
+
+    fetch(url, {
+        method: method,
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({name: name, inbound_id: inboundId, outbound_id: outboundId})
     }).then(r => r.json()).then(data => {
         if (data.success) {
-            document.getElementById('addModal').classList.remove('show');
+            document.getElementById('serviceModal').classList.remove('show');
             loadServices();
         } else {
-            alert(data.message || 'create failed');
+            showMessage(data.message || 'operation failed');
         }
     });
 }
 
+// 初始加载 + 定时刷新
 loadDashboard();
+setInterval(loadDashboard, 10000);
 {% endblock %}
 
 {% block modals %}
-<div class="modal-overlay" id="addModal">
+<!-- add/edit service -->
+<div class="modal-overlay" id="serviceModal">
     <div class="modal">
-        <div class="modal-title">add service</div>
+        <div class="modal-title" id="serviceModalTitle">add service</div>
         <div class="field"><label>name</label><input class="input" id="modalName"></div>
         <div class="field"><label>inbound</label><select id="modalInbound"></select></div>
         <div class="field"><label>outbound</label><select id="modalOutbound"></select></div>
         <div class="modal-actions">
             <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
-            <button class="btn btn-sm" onclick="createService()">create</button>
+            <button class="btn btn-sm" id="serviceModalSubmitBtn" onclick="submitService()">create</button>
+        </div>
+    </div>
+</div>
+
+<!-- confirm delete -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <div class="modal-title">confirm delete</div>
+        <div id="deleteMessage">Are you sure?</div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('deleteModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-danger btn-sm" id="deleteConfirmBtn">delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- message -->
+<div class="modal-overlay" id="messageModal">
+    <div class="modal">
+        <div class="modal-title">error</div>
+        <div id="messageText"></div>
+        <div class="modal-actions">
+            <button class="btn btn-sm" onclick="document.getElementById('messageModal').classList.remove('show')">ok</button>
         </div>
     </div>
 </div>

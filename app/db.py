@@ -104,6 +104,7 @@ def init_db():
             inbound_id INTEGER NOT NULL,
             outbound_id INTEGER NOT NULL,
             status TEXT DEFAULT 'stopped',
+            auto_start INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (inbound_id) REFERENCES inbounds(id),
             FOREIGN KEY (outbound_id) REFERENCES outbounds(id)
@@ -120,6 +121,15 @@ def init_db():
     ]:
         try:
             conn.execute(f'ALTER TABLE nodes ADD COLUMN {col} {typ}')
+        except:
+            pass
+
+    # services 表迁移
+    for col, typ in [
+        ('auto_start', 'INTEGER DEFAULT 0'),
+    ]:
+        try:
+            conn.execute(f'ALTER TABLE services ADD COLUMN {col} {typ}')
         except:
             pass
 
@@ -587,7 +597,7 @@ def create_service(name, inbound_id, outbound_id):
     return service_id
 
 
-def update_service(service_id, name=None, inbound_id=None, outbound_id=None):
+def update_service(service_id, name=None, inbound_id=None, outbound_id=None, auto_start=None):
     """更新服务"""
     conn = get_db()
     fields = []
@@ -601,6 +611,9 @@ def update_service(service_id, name=None, inbound_id=None, outbound_id=None):
     if outbound_id is not None:
         fields.append('outbound_id = ?')
         values.append(outbound_id)
+    if auto_start is not None:
+        fields.append('auto_start = ?')
+        values.append(int(auto_start))
     if fields:
         values.append(service_id)
         conn.execute(f'UPDATE services SET {", ".join(fields)} WHERE id = ?', values)
@@ -622,6 +635,22 @@ def update_service_status(service_id, status):
     conn.execute('UPDATE services SET status = ? WHERE id = ?', (status, service_id))
     conn.commit()
     conn.close()
+
+
+def get_auto_start_services():
+    """获取所有设置了 auto-start 的服务"""
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT s.*, i.name as inbound_name, i.protocol as inbound_protocol,
+               i.port as inbound_port, o.name as outbound_name, o.type as outbound_type
+        FROM services s
+        JOIN inbounds i ON s.inbound_id = i.id
+        JOIN outbounds o ON s.outbound_id = o.id
+        WHERE s.auto_start = 1
+        ORDER BY s.id
+    ''').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 # 初始化数据库

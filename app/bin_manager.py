@@ -26,9 +26,9 @@ BIN_REGISTRY = {
 }
 
 
-def _pid_file(bin_name):
-    """获取二进制的 PID 文件路径"""
-    return os.path.join(DATA_DIR, f'{bin_name}.pid')
+def _pid_file(service_name, bin_name):
+    """获取 service 级别的 PID 文件路径"""
+    return os.path.join(DATA_DIR, f'{service_name}_{bin_name}.pid')
 
 
 def get_bin_path(bin_name):
@@ -73,32 +73,45 @@ def get_version(bin_name):
         return 'unknown'
 
 
-def get_pid(bin_name):
+def get_pid(service_name, bin_name):
     """获取运行中的进程 PID"""
-    pid_file = _pid_file(bin_name)
+    pid_file = _pid_file(service_name, bin_name)
     if not os.path.exists(pid_file):
         return None
     try:
         with open(pid_file, 'r') as f:
             pid = int(f.read().strip())
-        os.kill(pid, 0)
-        return pid
+        # 检查进程是否存在
+        if os.name == 'nt':
+            # Windows: 用 tasklist 检查更可靠
+            result = subprocess.run(
+                ['tasklist', '/FI', f'PID eq {pid}', '/FO', 'CSV', '/NH'],
+                capture_output=True, text=True, timeout=5
+            )
+            if str(pid) in result.stdout:
+                return pid
+        else:
+            # Linux: os.kill(pid, 0) 检查
+            os.kill(pid, 0)
+            return pid
     except (ValueError, ProcessLookupError, PermissionError, OSError):
-        try:
-            os.remove(pid_file)
-        except OSError:
-            pass
-        return None
+        pass
+    # 进程不存在，清理 PID 文件
+    try:
+        os.remove(pid_file)
+    except OSError:
+        pass
+    return None
 
 
-def is_running(bin_name):
-    """检查二进制是否正在运行"""
-    return get_pid(bin_name) is not None
+def is_running(service_name, bin_name):
+    """检查进程是否正在运行"""
+    return get_pid(service_name, bin_name) is not None
 
 
-def get_uptime(bin_name):
+def get_uptime(service_name, bin_name):
     """获取进程运行时长（秒）"""
-    pid = get_pid(bin_name)
+    pid = get_pid(service_name, bin_name)
     if pid is None:
         return None
     try:
@@ -118,10 +131,10 @@ def get_uptime(bin_name):
         return None
 
 
-def start(bin_name, config_path=None):
-    """启动二进制进程"""
-    if is_running(bin_name):
-        return {'success': False, 'message': f'{bin_name} is already running'}
+def start(service_name, bin_name, config_path=None):
+    """启动进程（service 级别）"""
+    if is_running(service_name, bin_name):
+        return {'success': False, 'message': f'{service_name}/{bin_name} is already running'}
 
     bin_path = get_bin_path(bin_name)
     if not bin_path or not os.path.exists(bin_path):
@@ -134,7 +147,7 @@ def start(bin_name, config_path=None):
     # 如果没指定配置文件，使用默认路径
     if not config_path:
         config_dir = get_config_dir()
-        config_path = os.path.join(config_dir, bin_name, 'config.json')
+        config_path = os.path.join(config_dir, service_name, f'{bin_name}.json')
 
     if not os.path.exists(config_path):
         return {'success': False, 'message': f'config not found: {config_path}'}
@@ -152,7 +165,7 @@ def start(bin_name, config_path=None):
 
         # 保存 PID
         os.makedirs(DATA_DIR, exist_ok=True)
-        with open(_pid_file(bin_name), 'w') as f:
+        with open(_pid_file(service_name, bin_name), 'w') as f:
             f.write(str(process.pid))
 
         # 等待确认进程启动
@@ -165,87 +178,199 @@ def start(bin_name, config_path=None):
         return {'success': False, 'message': str(e)}
 
 
-def stop(bin_name):
-    """停止二进制进程"""
-    pid = get_pid(bin_name)
-    pid_file = _pid_file(bin_name)
+def stop(service_name, bin_name):
+    """停止进程（service 级别）"""
+    pid = get_pid(service_name, bin_name)
+    pid_file = _pid_file(service_name, bin_name)
 
     if pid is None:
-        return {'success': True, 'message': f'{bin_name} is not running'}
+        # 确保清理可能残留的 PID 文件
+        if os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+            except OSError:
+                pass
+        return {'success': True, 'message': f'{service_name}/{bin_name} is not running', 'pid': None}
 
     try:
-        os.kill(pid, signal.SIGTERM)
-        for _ in range(10):
-            time.sleep(0.3)
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                break
+        # Windows 上使用 taskkill，更可靠
+        if os.name == 'nt':
+            subprocess.run(['taskkill', '/F', '/PID', str(pid)],
+                         capture_output=True, timeout=5)
         else:
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            os.kill(pid, signal.SIGTERM)
+            for _ in range(10):
+                time.sleep(0.3)
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+            else:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
 
+        # 等待确认进程停止
+        time.sleep(0.5)
+        still_running = is_running(service_name, bin_name)
+
+        # 清理 PID 文件
         try:
             os.remove(pid_file)
         except OSError:
             pass
 
-        return {'success': True}
+        if still_running:
+            return {'success': False, 'message': f'{service_name}/{bin_name} failed to stop (pid={pid})', 'pid': pid}
+
+        return {'success': True, 'pid': pid}
     except ProcessLookupError:
+        # 进程已不存在，清理 PID 文件
         try:
             os.remove(pid_file)
         except OSError:
             pass
-        return {'success': True}
+        return {'success': True, 'pid': pid}
     except Exception as e:
-        return {'success': False, 'message': str(e)}
+        # 出错时也清理 PID 文件
+        try:
+            os.remove(pid_file)
+        except OSError:
+            pass
+        return {'success': False, 'message': str(e), 'pid': pid}
 
 
-def restart(bin_name, config_path=None):
-    """重启二进制进程"""
-    stop_result = stop(bin_name)
+def restart(service_name, bin_name, config_path=None):
+    """重启进程（service 级别）"""
+    stop_result = stop(service_name, bin_name)
     if not stop_result['success']:
         return stop_result
     time.sleep(0.5)
-    return start(bin_name, config_path)
+    return start(service_name, bin_name, config_path)
 
 
-def get_status(bin_name):
-    """获取单个二进制的完整状态"""
-    pid = get_pid(bin_name)
-    version = get_version(bin_name)
-    platform_info = get_platform()
+def get_status(service_name, bin_name):
+    """获取单个进程的完整状态"""
+    pid = get_pid(service_name, bin_name)
 
     if pid is not None:
-        uptime = get_uptime(bin_name)
+        uptime = get_uptime(service_name, bin_name)
         return {
-            'version': version or 'unknown',
             'status': 'running',
             'pid': pid,
             'uptime': uptime,
-            'platform': platform_info['key'],
-            'platform_supported': platform_info['supported'],
-            'platform_message': platform_info['message']
         }
     else:
         return {
-            'version': version or 'unknown',
             'status': 'stopped',
             'pid': None,
             'uptime': None,
-            'platform': platform_info['key'],
-            'platform_supported': platform_info['supported'],
-            'platform_message': platform_info['message']
         }
 
 
-def get_all_status():
-    """获取所有二进制的状态"""
+def get_service_status(service_name):
+    """获取 service 下所有进程的状态"""
     result = {}
     for bin_name in BIN_REGISTRY:
-        result[bin_name] = get_status(bin_name)
+        if is_running(service_name, bin_name):
+            result[bin_name] = get_status(service_name, bin_name)
+    return result
+
+
+def stop_service(service_name):
+    """停止 service 的所有进程"""
+    results = {}
+    for bin_name in BIN_REGISTRY:
+        if is_running(service_name, bin_name):
+            results[bin_name] = stop(service_name, bin_name)
+    return results
+
+
+# ========== 兼容旧接口（全局级别，用于 settings 页面管理 bin） ==========
+
+def _global_pid_file(bin_name):
+    """全局 PID 文件路径"""
+    return os.path.join(DATA_DIR, f'{bin_name}.pid')
+
+
+def get_global_pid(bin_name):
+    """获取全局进程 PID"""
+    pid_file = _global_pid_file(bin_name)
+    if not os.path.exists(pid_file):
+        return None
+    try:
+        with open(pid_file, 'r') as f:
+            pid = int(f.read().strip())
+        os.kill(pid, 0)
+        return pid
+    except (ValueError, ProcessLookupError, PermissionError, OSError):
+        try:
+            os.remove(pid_file)
+        except OSError:
+            pass
+        return None
+
+
+def is_global_running(bin_name):
+    """检查全局进程是否运行"""
+    return get_global_pid(bin_name) is not None
+
+
+def get_all_status():
+    """获取所有二进制的状态（检查全局 + 所有 service 级别的进程）"""
+    result = {}
+
+    # 先收集所有 service 级别正在运行的 bin
+    running_bins = set()
+    if os.path.exists(DATA_DIR):
+        for filename in os.listdir(DATA_DIR):
+            if filename.endswith('.pid'):
+                # 格式: <service>_<bin>.pid 或 <bin>.pid
+                parts = filename[:-4].rsplit('_', 1)
+                if len(parts) == 2 and parts[1] in BIN_REGISTRY:
+                    # service 级别: ss-forward_xray.pid
+                    bin_name = parts[1]
+                elif parts[0] in BIN_REGISTRY:
+                    # 全局: xray.pid
+                    bin_name = parts[0]
+                else:
+                    continue
+
+                # 检查进程是否真的在运行
+                pid_file = os.path.join(DATA_DIR, filename)
+                try:
+                    with open(pid_file, 'r') as f:
+                        pid = int(f.read().strip())
+                    if os.name == 'nt':
+                        result_proc = subprocess.run(
+                            ['tasklist', '/FI', f'PID eq {pid}', '/FO', 'CSV', '/NH'],
+                            capture_output=True, text=True, timeout=5
+                        )
+                        if str(pid) in result_proc.stdout:
+                            running_bins.add(bin_name)
+                    else:
+                        os.kill(pid, 0)
+                        running_bins.add(bin_name)
+                except (ValueError, ProcessLookupError, PermissionError, OSError):
+                    # 清理无效的 PID 文件
+                    try:
+                        os.remove(pid_file)
+                    except OSError:
+                        pass
+
+    for bin_name in BIN_REGISTRY:
+        version = get_version(bin_name)
+        if bin_name in running_bins:
+            result[bin_name] = {
+                'version': version or 'unknown',
+                'status': 'running',
+            }
+        else:
+            result[bin_name] = {
+                'version': version or 'unknown',
+                'status': 'stopped',
+            }
     return result
 
 

@@ -10,12 +10,68 @@ from .logger import web_logger
 import json
 import hashlib
 import os
+import threading
+import time
 
 app = Flask(__name__, template_folder='../templates')
 app.secret_key = os.urandom(24)
 
 APP_NAME = 'ProxyHub'
 boot_time = datetime.now().strftime('%H:%M:%S')
+
+
+def auto_start_services():
+    """自动启动设置了 auto-start 的服务"""
+    time.sleep(10)  # 等待 10 秒
+    services = db.get_auto_start_services()
+    if not services:
+        return
+
+    web_logger.add('info', 'system', f'auto-start: found {len(services)} service(s)')
+
+    for svc in services:
+        service_id = svc['id']
+        service_name = svc['name']
+        web_logger.add('info', 'system', f'auto-start: starting {service_name}...')
+
+        # 调用 start 逻辑
+        try:
+            from . import config_generator
+            result = config_generator.generate_service_config(service_id)
+            if not result['success']:
+                web_logger.add('error', 'system', f'auto-start: {service_name} config failed: {result["message"]}')
+                continue
+
+            paths = config_generator.save_service_config(
+                result['service_name'],
+                result['xray_in'],
+                result['outbound_bin'],
+                result['outbound_config']
+            )
+
+            # 启动 xray
+            xray_result = bin_manager.start(service_name, 'xray', config_path=paths['xray_in'])
+            if not xray_result['success']:
+                web_logger.add('error', 'system', f'auto-start: {service_name} xray failed: {xray_result["message"]}')
+                continue
+
+            # 启动出站 bin
+            out_bin = result['outbound_bin']
+            out_result = bin_manager.start(service_name, out_bin, config_path=paths['outbound'])
+            if not out_result['success']:
+                bin_manager.stop(service_name, 'xray')
+                web_logger.add('error', 'system', f'auto-start: {service_name} {out_bin} failed: {out_result["message"]}')
+                continue
+
+            db.update_service_status(service_id, 'running')
+            web_logger.add('ok', 'system', f'auto-start: {service_name} started')
+        except Exception as e:
+            web_logger.add('error', 'system', f'auto-start: {service_name} error: {str(e)}')
+
+
+# 启动 auto-start 线程
+auto_start_thread = threading.Thread(target=auto_start_services, daemon=True)
+auto_start_thread.start()
 
 
 @app.context_processor
@@ -794,7 +850,13 @@ def api_update_service(service_id):
     if not existing:
         return jsonify({'success': False, 'message': 'service not found'}), 404
 
-    db.update_service(service_id, name=data.get('name'), inbound_id=data.get('inbound_id'), outbound_id=data.get('outbound_id'))
+    db.update_service(
+        service_id,
+        name=data.get('name'),
+        inbound_id=data.get('inbound_id'),
+        outbound_id=data.get('outbound_id'),
+        auto_start=data.get('auto_start')
+    )
     return jsonify({'success': True})
 
 
@@ -812,37 +874,115 @@ def api_delete_service(service_id):
 @app.route('/api/services/<int:service_id>/start', methods=['POST'])
 @auth_required
 def api_start_service(service_id):
-    """启动服务（暂未实现实际逻辑）"""
+    """生成配置并启动进程"""
+    from . import config_generator
+    from .logger import web_logger
+
     existing = db.get_service(service_id)
     if not existing:
         return jsonify({'success': False, 'message': 'service not found'}), 404
-    # TODO: 实际启动逻辑
+
+    service_name = existing['name']
+
+    # 检查是否已在运行
+    if bin_manager.is_running(service_name, 'xray'):
+        return jsonify({'success': False, 'message': 'service is already running'})
+
+    # 生成配置
+    result = config_generator.generate_service_config(service_id)
+    if not result['success']:
+        web_logger.add('error', 'config', f'config generation failed: {result["message"]}')
+        return jsonify(result)
+
+    # 保存配置文件
+    paths = config_generator.save_service_config(
+        result['service_name'],
+        result['xray_in'],
+        result['outbound_bin'],
+        result['outbound_config']
+    )
+
+    web_logger.add('info', 'config', f'generated config for {service_name}')
+
+    # 启动 xray 入站进程
+    xray_result = bin_manager.start(service_name, 'xray', config_path=paths['xray_in'])
+    if not xray_result['success']:
+        db.update_service_status(service_id, 'error')
+        return jsonify({'success': False, 'message': f'xray start failed: {xray_result["message"]}'})
+
+    web_logger.add('info', 'service', f'xray started for {service_name}, pid={xray_result.get("pid")}')
+
+    # 启动出站 bin 进程
+    out_bin = result['outbound_bin']
+    out_result = bin_manager.start(service_name, out_bin, config_path=paths['outbound'])
+    if not out_result['success']:
+        # 回滚：停止 xray
+        bin_manager.stop(service_name, 'xray')
+        db.update_service_status(service_id, 'error')
+        return jsonify({'success': False, 'message': f'{out_bin} start failed: {out_result["message"]}'})
+
+    web_logger.add('info', 'service', f'{out_bin} started for {service_name}, pid={out_result.get("pid")}')
+
     db.update_service_status(service_id, 'running')
-    return jsonify({'success': True, 'message': 'start not implemented yet'})
+    return jsonify({
+        'success': True,
+        'socks_port': result['socks_port'],
+        'inbound_port': result['inbound_port'],
+        'node': result['node_name']
+    })
 
 
 @app.route('/api/services/<int:service_id>/stop', methods=['POST'])
 @auth_required
 def api_stop_service(service_id):
-    """停止服务（暂未实现实际逻辑）"""
+    """停止服务：停止相关进程"""
+    from .logger import web_logger
+
     existing = db.get_service(service_id)
     if not existing:
         return jsonify({'success': False, 'message': 'service not found'}), 404
-    # TODO: 实际停止逻辑
-    db.update_service_status(service_id, 'stopped')
-    return jsonify({'success': True, 'message': 'stop not implemented yet'})
+
+    service_name = existing['name']
+
+    # 停止所有进程
+    results = bin_manager.stop_service(service_name)
+
+    # 检查结果并记录日志
+    all_stopped = True
+    for bin_name, result in results.items():
+        if result.get('pid'):
+            if result['success']:
+                web_logger.add('info', 'service', f'{bin_name} (pid={result["pid"]}) stopped')
+            else:
+                web_logger.add('error', 'service', f'{bin_name} stop failed: {result.get("message")}')
+                all_stopped = False
+
+    if all_stopped:
+        db.update_service_status(service_id, 'stopped')
+        web_logger.add('info', 'service', f'service {service_name} stopped')
+        return jsonify({'success': True})
+    else:
+        db.update_service_status(service_id, 'error')
+        return jsonify({'success': False, 'message': 'some processes failed to stop'})
 
 
 @app.route('/api/services/<int:service_id>/restart', methods=['POST'])
 @auth_required
 def api_restart_service(service_id):
-    """重启服务（暂未实现实际逻辑）"""
+    """重启服务：stop 成功后再 start"""
     existing = db.get_service(service_id)
     if not existing:
         return jsonify({'success': False, 'message': 'service not found'}), 404
-    # TODO: 实际重启逻辑
-    db.update_service_status(service_id, 'running')
-    return jsonify({'success': True, 'message': 'restart not implemented yet'})
+
+    # 先停止
+    stop_response = api_stop_service(service_id)
+    stop_result = stop_response.get_json()
+
+    if not stop_result.get('success'):
+        return jsonify({'success': False, 'message': 'stop failed, restart aborted'})
+
+    # 再启动
+    return api_start_service(service_id)
 
 
 # ========== 日志 API ==========
