@@ -97,6 +97,18 @@ def init_db():
             priority INTEGER DEFAULT 0
         )
     ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS services (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            inbound_id INTEGER NOT NULL,
+            outbound_id INTEGER NOT NULL,
+            status TEXT DEFAULT 'stopped',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (inbound_id) REFERENCES inbounds(id),
+            FOREIGN KEY (outbound_id) REFERENCES outbounds(id)
+        )
+    ''')
     conn.commit()
 
     # 迁移：添加新列（如果不存在）
@@ -511,6 +523,103 @@ def clear_database():
     ).fetchall()
     for table in tables:
         conn.execute(f'DELETE FROM {table["name"]}')
+    conn.commit()
+    conn.close()
+
+
+# ========== 服务操作 ==========
+
+def get_all_services():
+    """获取所有服务（含 inbound/outbound 信息）"""
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT s.*, i.name as inbound_name, i.protocol as inbound_protocol,
+               i.port as inbound_port, i.params_json as inbound_params,
+               o.name as outbound_name, o.type as outbound_type, o.config_json as outbound_config
+        FROM services s
+        JOIN inbounds i ON s.inbound_id = i.id
+        JOIN outbounds o ON s.outbound_id = o.id
+        ORDER BY s.id
+    ''').fetchall()
+    conn.close()
+    result = []
+    for row in rows:
+        svc = dict(row)
+        # 如果是 auto 类型出站，获取节点池信息
+        if svc['outbound_type'] == 'auto':
+            pool = get_outbound_nodes(svc['outbound_id'])
+            svc['outbound_pool'] = pool
+        result.append(svc)
+    return result
+
+
+def get_service(service_id):
+    """获取单个服务"""
+    conn = get_db()
+    row = conn.execute('''
+        SELECT s.*, i.name as inbound_name, i.protocol as inbound_protocol,
+               i.port as inbound_port, i.params_json as inbound_params,
+               o.name as outbound_name, o.type as outbound_type, o.config_json as outbound_config
+        FROM services s
+        JOIN inbounds i ON s.inbound_id = i.id
+        JOIN outbounds o ON s.outbound_id = o.id
+        WHERE s.id = ?
+    ''', (service_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    svc = dict(row)
+    if svc['outbound_type'] == 'auto':
+        svc['outbound_pool'] = get_outbound_nodes(svc['outbound_id'])
+    return svc
+
+
+def create_service(name, inbound_id, outbound_id):
+    """创建服务"""
+    conn = get_db()
+    cursor = conn.execute(
+        'INSERT INTO services (name, inbound_id, outbound_id) VALUES (?, ?, ?)',
+        (name, inbound_id, outbound_id)
+    )
+    service_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return service_id
+
+
+def update_service(service_id, name=None, inbound_id=None, outbound_id=None):
+    """更新服务"""
+    conn = get_db()
+    fields = []
+    values = []
+    if name is not None:
+        fields.append('name = ?')
+        values.append(name)
+    if inbound_id is not None:
+        fields.append('inbound_id = ?')
+        values.append(inbound_id)
+    if outbound_id is not None:
+        fields.append('outbound_id = ?')
+        values.append(outbound_id)
+    if fields:
+        values.append(service_id)
+        conn.execute(f'UPDATE services SET {", ".join(fields)} WHERE id = ?', values)
+        conn.commit()
+    conn.close()
+
+
+def delete_service(service_id):
+    """删除服务"""
+    conn = get_db()
+    conn.execute('DELETE FROM services WHERE id = ?', (service_id,))
+    conn.commit()
+    conn.close()
+
+
+def update_service_status(service_id, status):
+    """更新服务状态"""
+    conn = get_db()
+    conn.execute('UPDATE services SET status = ? WHERE id = ?', (status, service_id))
     conn.commit()
     conn.close()
 

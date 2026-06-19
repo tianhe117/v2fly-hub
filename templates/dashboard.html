@@ -36,6 +36,10 @@
         <div class="stat-value" id="dashXrayStatus">-</div>
     </div>
     <div class="stat-item">
+        <div class="stat-label">sslocal</div>
+        <div class="stat-value" id="dashSslocalStatus">-</div>
+    </div>
+    <div class="stat-item">
         <div class="stat-label">sing-box</div>
         <div class="stat-value" id="dashSingboxStatus">-</div>
     </div>
@@ -43,82 +47,22 @@
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
     <span style="font-weight:bold;">services</span>
-    <button class="btn btn-sm" onclick="document.getElementById('addModal').classList.add('show')">+ add service</button>
+    <button class="btn btn-sm" onclick="openAddServiceModal()">+ add service</button>
 </div>
 
-<div class="service-card">
-    <div class="service-header">
-        <div>
-            <span class="status-dot ok"></span>
-            <span class="service-name">ss-forward</span>
-            <span class="service-meta"> port 666 &middot; shadowsocks</span>
-        </div>
-        <div class="service-actions">
-            <button class="btn btn-sm">stop</button>
-            <button class="btn btn-sm">restart</button>
-            <button class="btn btn-sm">edit</button>
-            <button class="btn btn-danger btn-sm">del</button>
-        </div>
-    </div>
-    <div class="service-body">
-        <div class="flow">
-            <div class="flow-box"><div class="flow-label">inbound</div><div>ss :666 aes-256-gcm</div></div>
-            <div class="flow-arrow">&rarr;</div>
-            <div class="flow-box"><div class="flow-label">outbound</div><div>auto-switch (5 nodes, cur: HK-01)</div></div>
-        </div>
-    </div>
-</div>
-
-<div class="service-card">
-    <div class="service-header">
-        <div>
-            <span class="status-dot ok"></span>
-            <span class="service-name">vmess-forward</span>
-            <span class="service-meta"> port 24811 &middot; vmess+ws</span>
-        </div>
-        <div class="service-actions">
-            <button class="btn btn-sm">stop</button>
-            <button class="btn btn-sm">restart</button>
-            <button class="btn btn-sm">edit</button>
-            <button class="btn btn-danger btn-sm">del</button>
-        </div>
-    </div>
-    <div class="service-body">
-        <div class="flow">
-            <div class="flow-box"><div class="flow-label">inbound</div><div>vmess :24811 ws /49c866/</div></div>
-            <div class="flow-arrow">&rarr;</div>
-            <div class="flow-box"><div class="flow-label">outbound</div><div>auto-switch (5 nodes, cur: HK-01)</div></div>
-        </div>
-    </div>
-</div>
-
-<div class="service-card">
-    <div class="service-header">
-        <div>
-            <span class="status-dot ok"></span>
-            <span class="service-name">ss-home</span>
-            <span class="service-meta"> port 704 &middot; shadowsocks</span>
-        </div>
-        <div class="service-actions">
-            <button class="btn btn-sm">stop</button>
-            <button class="btn btn-sm">restart</button>
-            <button class="btn btn-sm">edit</button>
-            <button class="btn btn-danger btn-sm">del</button>
-        </div>
-    </div>
-    <div class="service-body">
-        <div class="flow">
-            <div class="flow-box"><div class="flow-label">inbound</div><div>ss :704 aes-256-gcm</div></div>
-            <div class="flow-arrow">&rarr;</div>
-            <div class="flow-box"><div class="flow-label">outbound</div><div>freedom (direct)</div></div>
-        </div>
-    </div>
-</div>
+<div id="serviceList"></div>
 {% endblock %}
 
 {% block statusbar_right %}{% endblock %}
 
 {% block extra_js %}
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // 加载仪表盘数据
 function loadDashboard() {
     // 加载节点和订阅数量
@@ -140,10 +84,125 @@ function loadDashboard() {
             el.textContent = data.xray.status;
             el.className = 'stat-value ' + (data.xray.status === 'running' ? 'ok' : '');
         }
+        if (data.sslocal) {
+            var el = document.getElementById('dashSslocalStatus');
+            el.textContent = data.sslocal.status;
+            el.className = 'stat-value ' + (data.sslocal.status === 'running' ? 'ok' : '');
+        }
         if (data['sing-box']) {
             var el = document.getElementById('dashSingboxStatus');
             el.textContent = data['sing-box'].status;
             el.className = 'stat-value ' + (data['sing-box'].status === 'running' ? 'ok' : '');
+        }
+    });
+
+    // 加载服务列表
+    loadServices();
+}
+
+// 加载服务列表
+function loadServices() {
+    fetch('/api/services').then(r => r.json()).then(services => {
+        var container = document.getElementById('serviceList');
+        if (services.length === 0) {
+            container.innerHTML = '<div style="color:#888;font-size:12px;padding:16px;text-align:center;">no services yet</div>';
+            return;
+        }
+        container.innerHTML = services.map(function(svc) {
+            var statusClass = svc.status === 'running' ? 'ok' : (svc.status === 'error' ? 'error' : 'idle');
+            var inboundDesc = svc.inbound_protocol + ' :' + svc.inbound_port;
+            if (svc.inbound_params) {
+                try {
+                    var params = JSON.parse(svc.inbound_params);
+                    if (params.password) inboundDesc += ' ' + params.method || 'aes-256-gcm';
+                    if (params.path) inboundDesc += ' ws ' + params.path;
+                } catch(e) {}
+            }
+            var outboundDesc = svc.outbound_name;
+            if (svc.outbound_type === 'auto' && svc.outbound_pool) {
+                outboundDesc += ' (' + svc.outbound_pool.length + ' nodes)';
+            }
+            return '<div class="service-card">' +
+                '<div class="service-header">' +
+                    '<div>' +
+                        '<span class="status-dot ' + statusClass + '"></span>' +
+                        '<span class="service-name">' + escapeHtml(svc.name) + '</span>' +
+                        '<span class="service-meta"> port ' + svc.inbound_port + ' &middot; ' + svc.inbound_protocol + '</span>' +
+                    '</div>' +
+                    '<div class="service-actions">' +
+                        '<button class="btn btn-sm" onclick="serviceAction(' + svc.id + ', \'start\')">start</button>' +
+                        '<button class="btn btn-sm" onclick="serviceAction(' + svc.id + ', \'stop\')">stop</button>' +
+                        '<button class="btn btn-sm" onclick="serviceAction(' + svc.id + ', \'restart\')">restart</button>' +
+                        '<button class="btn btn-sm" onclick="deleteService(' + svc.id + ')">del</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="service-body">' +
+                    '<div class="flow">' +
+                        '<div class="flow-box"><div class="flow-label">inbound</div><div>' + escapeHtml(inboundDesc) + '</div></div>' +
+                        '<div class="flow-arrow">&rarr;</div>' +
+                        '<div class="flow-box"><div class="flow-label">outbound</div><div>' + escapeHtml(outboundDesc) + '</div></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    });
+}
+
+// 服务操作
+function serviceAction(id, action) {
+    fetch('/api/services/' + id + '/' + action, {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) loadServices();
+            else alert(data.message || 'action failed');
+        });
+}
+
+// 删除服务
+function deleteService(id) {
+    if (!confirm('Delete this service?')) return;
+    fetch('/api/services/' + id, {method: 'DELETE'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) loadServices();
+        });
+}
+
+// 打开添加服务模态框
+function openAddServiceModal() {
+    // 加载 inbounds 和 outbounds 选项
+    Promise.all([
+        fetch('/api/inbounds').then(r => r.json()),
+        fetch('/api/outbounds').then(r => r.json())
+    ]).then(function([inbounds, outbounds]) {
+        var inSelect = document.getElementById('modalInbound');
+        var outSelect = document.getElementById('modalOutbound');
+        inSelect.innerHTML = inbounds.map(function(ib) {
+            return '<option value="' + ib.id + '">' + escapeHtml(ib.name) + ' (' + ib.protocol + ' :' + ib.port + ')</option>';
+        }).join('');
+        outSelect.innerHTML = outbounds.map(function(ob) {
+            return '<option value="' + ob.id + '">' + escapeHtml(ob.name) + ' (' + ob.type + ')</option>';
+        }).join('');
+        document.getElementById('addModal').classList.add('show');
+    });
+}
+
+// 创建服务
+function createService() {
+    var name = document.getElementById('modalName').value.trim();
+    var inboundId = parseInt(document.getElementById('modalInbound').value);
+    var outboundId = parseInt(document.getElementById('modalOutbound').value);
+    if (!name) { alert('name required'); return; }
+    fetch('/api/services', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name, inbound_id: inboundId, outbound_id: outboundId})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            document.getElementById('addModal').classList.remove('show');
+            loadServices();
+        } else {
+            alert(data.message || 'create failed');
         }
     });
 }
@@ -155,26 +214,12 @@ loadDashboard();
 <div class="modal-overlay" id="addModal">
     <div class="modal">
         <div class="modal-title">add service</div>
-        <div class="field"><label>name</label><input class="input" placeholder="ss-forward"></div>
-        <div class="field"><label>inbound</label>
-            <select>
-                <option>ss :666 (aes-256-gcm)</option>
-                <option>vmess :24811 (ws /49c866/)</option>
-                <option>ss :704 (aes-256-gcm)</option>
-                <option value="">+ new inbound...</option>
-            </select>
-        </div>
-        <div class="field"><label>outbound</label>
-            <select>
-                <option>auto-switch (5 nodes)</option>
-                <option>freedom (direct)</option>
-                <option>single-proxy HK-01</option>
-                <option value="">+ new outbound...</option>
-            </select>
-        </div>
+        <div class="field"><label>name</label><input class="input" id="modalName"></div>
+        <div class="field"><label>inbound</label><select id="modalInbound"></select></div>
+        <div class="field"><label>outbound</label><select id="modalOutbound"></select></div>
         <div class="modal-actions">
             <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
-            <button class="btn btn-sm">create</button>
+            <button class="btn btn-sm" onclick="createService()">create</button>
         </div>
     </div>
 </div>

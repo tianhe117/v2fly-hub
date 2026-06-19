@@ -742,6 +742,109 @@ def api_check_status(task_id):
     return jsonify({'success': True, **status})
 
 
+# ========== 服务 API ==========
+
+@app.route('/api/services', methods=['GET'])
+@auth_required
+def api_get_services():
+    """获取所有服务"""
+    services = db.get_all_services()
+    return jsonify(services)
+
+
+@app.route('/api/services/<int:service_id>', methods=['GET'])
+@auth_required
+def api_get_service(service_id):
+    """获取单个服务"""
+    service = db.get_service(service_id)
+    if not service:
+        return jsonify({'success': False, 'message': 'service not found'}), 404
+    return jsonify(service)
+
+
+@app.route('/api/services', methods=['POST'])
+@auth_required
+def api_create_service():
+    """创建服务"""
+    data = request.get_json()
+    if not data or not data.get('name') or not data.get('inbound_id') or not data.get('outbound_id'):
+        return jsonify({'success': False, 'message': 'name, inbound_id, outbound_id required'}), 400
+
+    # 验证 inbound 和 outbound 存在
+    inbound = db.get_inbound(data['inbound_id'])
+    if not inbound:
+        return jsonify({'success': False, 'message': 'inbound not found'}), 404
+    outbound = db.get_outbound(data['outbound_id'])
+    if not outbound:
+        return jsonify({'success': False, 'message': 'outbound not found'}), 404
+
+    service_id = db.create_service(data['name'], data['inbound_id'], data['outbound_id'])
+    return jsonify({'success': True, 'id': service_id})
+
+
+@app.route('/api/services/<int:service_id>', methods=['PUT'])
+@auth_required
+def api_update_service(service_id):
+    """更新服务"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'no data'}), 400
+
+    existing = db.get_service(service_id)
+    if not existing:
+        return jsonify({'success': False, 'message': 'service not found'}), 404
+
+    db.update_service(service_id, name=data.get('name'), inbound_id=data.get('inbound_id'), outbound_id=data.get('outbound_id'))
+    return jsonify({'success': True})
+
+
+@app.route('/api/services/<int:service_id>', methods=['DELETE'])
+@auth_required
+def api_delete_service(service_id):
+    """删除服务"""
+    existing = db.get_service(service_id)
+    if not existing:
+        return jsonify({'success': False, 'message': 'service not found'}), 404
+    db.delete_service(service_id)
+    return jsonify({'success': True})
+
+
+@app.route('/api/services/<int:service_id>/start', methods=['POST'])
+@auth_required
+def api_start_service(service_id):
+    """启动服务（暂未实现实际逻辑）"""
+    existing = db.get_service(service_id)
+    if not existing:
+        return jsonify({'success': False, 'message': 'service not found'}), 404
+    # TODO: 实际启动逻辑
+    db.update_service_status(service_id, 'running')
+    return jsonify({'success': True, 'message': 'start not implemented yet'})
+
+
+@app.route('/api/services/<int:service_id>/stop', methods=['POST'])
+@auth_required
+def api_stop_service(service_id):
+    """停止服务（暂未实现实际逻辑）"""
+    existing = db.get_service(service_id)
+    if not existing:
+        return jsonify({'success': False, 'message': 'service not found'}), 404
+    # TODO: 实际停止逻辑
+    db.update_service_status(service_id, 'stopped')
+    return jsonify({'success': True, 'message': 'stop not implemented yet'})
+
+
+@app.route('/api/services/<int:service_id>/restart', methods=['POST'])
+@auth_required
+def api_restart_service(service_id):
+    """重启服务（暂未实现实际逻辑）"""
+    existing = db.get_service(service_id)
+    if not existing:
+        return jsonify({'success': False, 'message': 'service not found'}), 404
+    # TODO: 实际重启逻辑
+    db.update_service_status(service_id, 'running')
+    return jsonify({'success': True, 'message': 'restart not implemented yet'})
+
+
 # ========== 日志 API ==========
 
 @app.route('/api/logs', methods=['GET'])
