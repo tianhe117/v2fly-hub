@@ -981,6 +981,10 @@ function updateNode(nodeId) {
         config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
     }
 
+    // 立即关闭弹窗
+    closeEditModal();
+    addLog('info', '[node] updating "' + name + '"...');
+
     fetch('/api/nodes/' + nodeId, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -995,7 +999,6 @@ function updateNode(nodeId) {
     .then(r => r.json())
     .then(result => {
         if (result.success) {
-            closeEditModal();
             addLog('ok', '[node] updated ' + name);
             loadNodes();
         } else {
@@ -1104,6 +1107,10 @@ function addNode() {
         config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
     }
 
+    // 立即关闭弹窗
+    document.getElementById('addNodeModal').classList.remove('show');
+    addLog('info', '[node] adding "' + name + '"...');
+
     fetch('/api/nodes', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1118,7 +1125,6 @@ function addNode() {
     .then(r => r.json())
     .then(result => {
         if (result.success) {
-            document.getElementById('addNodeModal').classList.remove('show');
             addLog('ok', '[node] added ' + name);
             loadNodes();
         } else {

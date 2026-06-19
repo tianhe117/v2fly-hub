@@ -223,6 +223,12 @@ function addSubscription() {
         return;
     }
 
+    // 立即关闭弹窗
+    document.getElementById('addSubModal').classList.remove('show');
+    document.getElementById('subName').value = '';
+    document.getElementById('subUrl').value = '';
+    addLog('info', '[subscription] adding "' + name + '"...');
+
     fetch('/api/subscriptions', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -231,11 +237,10 @@ function addSubscription() {
     .then(r => r.json())
     .then(result => {
         if (result.success) {
-            document.getElementById('addSubModal').classList.remove('show');
-            document.getElementById('subName').value = '';
-            document.getElementById('subUrl').value = '';
-            addLog('ok', '[subscription] added ' + name + ' (' + result.nodes + ' nodes)');
+            addLog('ok', '[subscription] added, fetching nodes...');
             loadSubscriptions();
+            // 异步刷新
+            refreshSubscription(result.id);
         } else {
             addLog('error', '[subscription] ' + result.message);
         }
@@ -245,12 +250,12 @@ function addSubscription() {
 
 // refresh subscription
 function refreshSubscription(subId) {
-    addLog('info', '[subscription] refreshing...');
+    addLog('info', '[subscription] fetching url...');
     fetch('/api/subscriptions/' + subId + '/refresh', {method: 'POST'})
         .then(r => r.json())
         .then(result => {
             if (result.success) {
-                addLog('ok', '[subscription] updated (' + result.count + ' nodes)');
+                addLog('ok', '[subscription] parsed ' + result.count + ' nodes');
                 loadSubscriptions();
             } else {
                 addLog('error', '[subscription] ' + result.message);

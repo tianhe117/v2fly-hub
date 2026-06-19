@@ -309,17 +309,13 @@ def api_get_subscriptions():
 @app.route('/api/subscriptions', methods=['POST'])
 @auth_required
 def api_create_subscription():
-    """添加订阅"""
+    """添加订阅（只创建记录，不立即刷新）"""
     data = request.get_json()
     if not data or not data.get('name') or not data.get('url'):
         return jsonify({'success': False, 'message': 'name and url required'}), 400
 
     sub_id = db.create_subscription(data['name'], data['url'])
-
-    # 自动刷新订阅
-    result = refresh_subscription(sub_id)
-
-    return jsonify({'success': True, 'id': sub_id, 'nodes': result.get('count', 0)})
+    return jsonify({'success': True, 'id': sub_id})
 
 
 @app.route('/api/subscriptions/<int:sub_id>', methods=['PUT'])
