@@ -3,8 +3,13 @@ import json
 import time
 import urllib.request
 import ssl
+import os
+import subprocess
+import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from . import db
+from . import bin_manager
+from .config import generate_config, write_temp_config, cleanup_temp_config
 
 
 def check_nodes(node_ids=None, check_all=False):
@@ -43,7 +48,7 @@ def check_nodes(node_ids=None, check_all=False):
         tcp_ms = None
         curl_ms = None
 
-        # TCP 检测
+        # TCP 检测（直接连接目标服务器）
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(tcp_timeout)
@@ -54,28 +59,9 @@ def check_nodes(node_ids=None, check_all=False):
         except:
             tcp_ms = -1
 
-        # Curl 检测（通过代理）
+        # Curl 检测（通过临时本地代理）
         if tcp_ms and tcp_ms > 0:
-            try:
-                config = json.loads(node['config_json'])
-                proxy_url = f"socks5://{node['address']}:{node['port']}"
-
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-
-                proxy_handler = urllib.request.ProxyHandler({
-                    'http': proxy_url,
-                    'https': proxy_url
-                })
-                opener = urllib.request.build_opener(proxy_handler)
-
-                start = time.time()
-                req = urllib.request.Request(test_url)
-                opener.open(req, timeout=curl_timeout)
-                curl_ms = int((time.time() - start) * 1000)
-            except:
-                curl_ms = -1
+            curl_ms = _check_curl_via_proxy(node, curl_timeout, test_url)
 
         # 更新数据库
         db.update_node_latency(node['id'], tcp_ms, curl_ms)
@@ -87,8 +73,8 @@ def check_nodes(node_ids=None, check_all=False):
             'curl': curl_ms
         }
 
-    # 并行检测
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    # 并行检测（限制并发数，避免同时启动太多进程）
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(check_one, node): node for node in nodes}
         for future in as_completed(futures):
             try:
@@ -104,3 +90,86 @@ def check_nodes(node_ids=None, check_all=False):
                 })
 
     return results
+
+
+def _check_curl_via_proxy(node, curl_timeout, test_url):
+    """通过启动临时本地代理进程来检测 curl 延迟
+
+    Returns:
+        int: 延迟毫秒数，失败返回 -1
+    """
+    bin_type = node.get('bin_type', 'xray')
+    bin_path = bin_manager.get_bin_path(bin_type)
+
+    if not bin_path or not os.path.exists(bin_path):
+        return -1
+
+    config_path = None
+    process = None
+
+    try:
+        # 生成配置
+        result = generate_config(node)
+        config = result['config']
+        local_port = result['local_port']
+
+        # 写入临时配置文件
+        config_path = write_temp_config(config, bin_type)
+
+        # 启动临时进程
+        reg = bin_manager.BIN_REGISTRY.get(bin_type)
+        if not reg:
+            return -1
+
+        args = [bin_path] + [a.replace('{config}', config_path) for a in reg['run_args']]
+
+        process = subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        )
+
+        # 等待进程启动
+        time.sleep(1.0)
+
+        if process.poll() is not None:
+            return -1
+
+        # 通过本地代理检测
+        proxy_url = f"socks5://127.0.0.1:{local_port}"
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        proxy_handler = urllib.request.ProxyHandler({
+            'http': proxy_url,
+            'https': proxy_url
+        })
+        opener = urllib.request.build_opener(proxy_handler)
+
+        start = time.time()
+        req = urllib.request.Request(test_url)
+        opener.open(req, timeout=curl_timeout)
+        curl_ms = int((time.time() - start) * 1000)
+
+        return curl_ms
+
+    except:
+        return -1
+
+    finally:
+        # 清理进程
+        if process:
+            try:
+                process.terminate()
+                process.wait(timeout=3)
+            except:
+                try:
+                    process.kill()
+                except:
+                    pass
+
+        # 清理临时配置文件
+        cleanup_temp_config(config_path)
