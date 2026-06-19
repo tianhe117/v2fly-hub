@@ -3,18 +3,29 @@ import base64
 import json
 import yaml
 
-# 协议→二进制映射
+# 协议→二进制映射（无插件时的默认值）
 BIN_TYPE_MAP = {
     'vmess': 'xray',
     'vless': 'xray',
     'trojan': 'xray',
-    'ss': 'xray',
+    'ss': 'xray',        # 无插件用 xray，有插件用 sslocal
     'ssr': 'xray',
     'hysteria': 'sing-box',
     'hysteria2': 'sing-box',
     'hy2': 'sing-box',
     'tuic': 'sing-box',
     'anytls': 'xray',
+}
+
+# 协议与 bin_type 的合法映射
+VALID_BIN_TYPES = {
+    'vmess': ['xray'],
+    'vless': ['xray'],
+    'trojan': ['xray'],
+    'ss': ['xray', 'sslocal'],      # 无插件用 xray，有插件用 sslocal
+    'ssr': ['xray'],
+    'hysteria2': ['sing-box'],
+    'tuic': ['sing-box'],
 }
 
 
@@ -153,10 +164,12 @@ def parse_clash_node(proxy):
             'method': proxy.get('cipher', 'aes-256-gcm'),
             'password': proxy.get('password', ''),
         }
-        # 处理插件
+        # 处理插件（只保留 obfs）
         plugin = proxy.get('plugin', '')
-        if plugin:
-            cfg['plugin'] = plugin
+        has_plugin = False
+        if plugin and plugin == 'obfs':
+            has_plugin = True
+            cfg['plugin'] = 'obfs-local'
             plugin_opts = proxy.get('plugin-opts', {})
             if plugin_opts:
                 opts = []
@@ -165,13 +178,15 @@ def parse_clash_node(proxy):
                 if 'host' in plugin_opts:
                     opts.append(f"obfs-host={plugin_opts['host']}")
                 cfg['plugin_opts'] = ';'.join(opts)
+        # 有插件用 sslocal，无插件用 xray
+        bin_type = 'sslocal' if has_plugin else 'xray'
         return {
             'name': name,
             'protocol': 'ss',
             'address': server,
             'port': port,
             'config_json': json.dumps(cfg),
-            'bin_type': BIN_TYPE_MAP.get('ss', 'xray')
+            'bin_type': bin_type
         }
 
     elif node_type == 'ssr':
@@ -470,8 +485,19 @@ def decode_ss(ss_url):
             'method': method,
             'password': password
         }
+        # 只保留 obfs 插件支持
+        has_plugin = False
         if plugin:
-            config['plugin'] = plugin
+            if 'obfs' in plugin:
+                has_plugin = True
+                config['plugin'] = 'obfs-local'
+                # 提取 plugin_opts（obfs 之后的部分）
+                if ';' in plugin:
+                    config['plugin_opts'] = plugin.split(';', 1)[1]
+            # v2ray-plugin 等其他插件不再支持，忽略
+
+        # 有插件用 sslocal，无插件用 xray
+        bin_type = 'sslocal' if has_plugin else 'xray'
 
         return {
             'name': name,
@@ -479,7 +505,7 @@ def decode_ss(ss_url):
             'address': address,
             'port': port,
             'config_json': json.dumps(config),
-            'bin_type': 'xray'
+            'bin_type': bin_type
         }
     except Exception:
         return None

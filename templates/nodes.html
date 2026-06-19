@@ -65,11 +65,12 @@
                     <option value="ss">Shadowsocks</option>
                     <option value="trojan">Trojan</option>
                     <option value="hysteria2">Hysteria2</option>
+                    <option value="tuic">TUIC</option>
                 </select>
             </div>
             <div class="field">
                 <label>binary</label>
-                <select class="input" id="nodeBinType">
+                <select class="input" id="nodeBinType" onchange="onBinTypeChange()">
                     <option value="xray">xray</option>
                     <option value="sslocal">sslocal</option>
                     <option value="sing-box">sing-box</option>
@@ -127,16 +128,23 @@
                 </select>
             </div>
             <div class="field"><label>password</label><input class="input" id="ssPassword" placeholder="password"></div>
-            <div class="field">
-                <label>plugin</label>
-                <select class="input" id="ssPlugin" onchange="updatePluginOpts()">
-                    <option value="">none</option>
-                    <option value="obfs-local">obfs-local</option>
-                    <option value="v2ray-plugin">v2ray-plugin</option>
-                </select>
-            </div>
-            <div id="ssPluginOpts" style="display:none;">
-                <div class="field"><label>plugin opts</label><input class="input" id="ssPluginOptsInput" placeholder="obfs=http;obfs-host=example.com"></div>
+            <div id="ssPluginSection">
+                <div class="field">
+                    <label>plugin</label>
+                    <select class="input" id="ssPlugin" onchange="updatePluginOpts()">
+                        <option value="">none</option>
+                        <option value="obfs-local">obfs-local</option>
+                    </select>
+                </div>
+                <div id="ssPluginOpts" style="display:none;">
+                    <div class="field"><label>plugin mode</label>
+                        <select class="input" id="ssPluginMode" onchange="updatePluginOptsText()">
+                            <option value="http">http</option>
+                            <option value="tls">tls</option>
+                        </select>
+                    </div>
+                    <div class="field"><label>plugin host</label><input class="input" id="ssPluginHost" placeholder="example.com"></div>
+                </div>
             </div>
         </div>
 
@@ -237,6 +245,16 @@
 
 {% block extra_js %}
 var groups = [];
+
+// 协议→可用 bin_type 映射
+var VALID_BIN_TYPES = {
+    'vmess': ['xray'],
+    'vless': ['xray'],
+    'trojan': ['xray'],
+    'ss': ['xray', 'sslocal'],
+    'hysteria2': ['sing-box'],
+    'tuic': ['sing-box']
+};
 
 // load grouped nodes
 function loadNodes() {
@@ -470,7 +488,8 @@ function openAddNodeModal() {
     document.getElementById('ssMethod').value = 'aes-256-gcm';
     document.getElementById('ssPassword').value = '';
     document.getElementById('ssPlugin').value = '';
-    document.getElementById('ssPluginOptsInput').value = '';
+    document.getElementById('ssPluginMode').value = 'http';
+    document.getElementById('ssPluginHost').value = '';
     // Trojan
     document.getElementById('trojanPassword').value = '';
     document.getElementById('trojanAlpn').value = '';
@@ -662,23 +681,31 @@ function parseSsUrl(url) {
         }
 
         document.getElementById('nodeProtocol').value = 'ss';
+        // 先更新 bin 选项（让 sslocal 可选），再设置 bin_type
+        updateBinOptions('ss');
         document.getElementById('nodeName').value = name || address + ':' + port;
         document.getElementById('nodeAddr').value = address;
         document.getElementById('nodePort').value = port;
         document.getElementById('ssMethod').value = method;
         document.getElementById('ssPassword').value = password;
 
-        if (plugin) {
-            if (plugin.startsWith('obfs')) {
-                document.getElementById('ssPlugin').value = 'obfs-local';
-            } else if (plugin.startsWith('v2ray-plugin')) {
-                document.getElementById('ssPlugin').value = 'v2ray-plugin';
-            }
-            var idx = plugin.indexOf(';');
-            if (idx > 0) {
-                document.getElementById('ssPluginOptsInput').value = plugin.substring(idx + 1);
-            }
+        if (plugin && plugin.startsWith('obfs')) {
+            document.getElementById('ssPlugin').value = 'obfs-local';
+            // 解析 obfs 参数
+            var parts = plugin.split(';');
+            parts.forEach(function(p) {
+                if (p === 'obfs=http') {
+                    document.getElementById('ssPluginMode').value = 'http';
+                } else if (p === 'obfs=tls') {
+                    document.getElementById('ssPluginMode').value = 'tls';
+                } else if (p.startsWith('obfs-host=')) {
+                    document.getElementById('ssPluginHost').value = p.substring(10);
+                }
+            });
+            // 有插件时设置 bin_type 为 sslocal（此时选项已更新）
+            document.getElementById('nodeBinType').value = 'sslocal';
         }
+        // v2ray-plugin 不再支持，忽略
     }
 }
 
@@ -802,23 +829,60 @@ function updateConfigFields() {
     // TLS：所有协议都支持
     document.getElementById('tlsFields').style.display = 'block';
 
-    // 自动设置 bin_type
-    var binTypeMap = {
-        'vmess': 'xray', 'vless': 'xray', 'trojan': 'xray',
-        'ss': 'xray',
-        'hysteria2': 'sing-box'
-    };
-    document.getElementById('nodeBinType').value = binTypeMap[proto] || 'xray';
+    // 更新 bin_type 选项（只显示匹配的选项）
+    updateBinOptions(proto);
 
+    onBinTypeChange();
     updateNetworkOpts();
     updateTlsOpts();
-    updatePluginOpts();
     updateHy2Obfs();
+}
+
+function updateBinOptions(proto) {
+    var validBins = VALID_BIN_TYPES[proto] || ['xray'];
+    var binSelect = document.getElementById('nodeBinType');
+    var currentBin = binSelect.value;
+
+    // 清空并重建选项
+    binSelect.innerHTML = '';
+    validBins.forEach(function(b) {
+        var opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        binSelect.appendChild(opt);
+    });
+
+    // 如果当前 bin 在可用列表中，保持选中；否则选第一个
+    if (validBins.indexOf(currentBin) !== -1) {
+        binSelect.value = currentBin;
+    }
+}
+
+function onBinTypeChange() {
+    var proto = document.getElementById('nodeProtocol').value;
+    var binType = document.getElementById('nodeBinType').value;
+
+    // SS 协议：xray 不支持插件，隐藏 plugin 选项
+    if (proto === 'ss') {
+        var pluginSection = document.getElementById('ssPluginSection');
+        if (binType === 'xray') {
+            pluginSection.style.display = 'none';
+            document.getElementById('ssPlugin').value = '';
+            document.getElementById('ssPluginOpts').style.display = 'none';
+        } else {
+            pluginSection.style.display = 'block';
+            updatePluginOpts();
+        }
+    }
 }
 
 function updatePluginOpts() {
     var plugin = document.getElementById('ssPlugin').value;
     document.getElementById('ssPluginOpts').style.display = plugin ? 'block' : 'none';
+}
+
+function updatePluginOptsText() {
+    // 预览 plugin opts（可选功能）
 }
 
 function updateNetworkOpts() {
@@ -864,6 +928,8 @@ function editNode(nodeId) {
     document.getElementById('nodeUrl').value = '';
     document.getElementById('nodeName').value = node.name || '';
     document.getElementById('nodeProtocol').value = node.protocol || 'vmess';
+    // 先设置协议，再更新 bin_type 选项，最后设置 bin_type 值
+    updateConfigFields();
     document.getElementById('nodeBinType').value = node.bin_type || 'xray';
     document.getElementById('nodeAddr').value = node.address || '';
     document.getElementById('nodePort').value = node.port || '';
@@ -880,9 +946,14 @@ function editNode(nodeId) {
     } else if (node.protocol === 'ss') {
         document.getElementById('ssMethod').value = config.method || 'aes-256-gcm';
         document.getElementById('ssPassword').value = config.password || '';
-        if (config.plugin) {
-            document.getElementById('ssPlugin').value = config.plugin;
-            document.getElementById('ssPluginOptsInput').value = config.plugin_opts || '';
+        if (config.plugin === 'obfs-local' && node.bin_type === 'sslocal') {
+            document.getElementById('ssPlugin').value = 'obfs-local';
+            // 解析 plugin_opts
+            var opts = config.plugin_opts || '';
+            var modeMatch = opts.match(/obfs=(\w+)/);
+            var hostMatch = opts.match(/obfs-host=([^;]+)/);
+            if (modeMatch) document.getElementById('ssPluginMode').value = modeMatch[1];
+            if (hostMatch) document.getElementById('ssPluginHost').value = hostMatch[1];
         }
     } else if (node.protocol === 'trojan') {
         document.getElementById('trojanPassword').value = config.password || '';
@@ -940,6 +1011,7 @@ function updateNode(nodeId) {
     var protocol = document.getElementById('nodeProtocol').value;
     var address = document.getElementById('nodeAddr').value.trim();
     var port = parseInt(document.getElementById('nodePort').value) || 0;
+    var binType = document.getElementById('nodeBinType').value;
 
     if (!name || !address || !port) {
         addLog('error', '[node] name, address and port required');
@@ -962,9 +1034,11 @@ function updateNode(nodeId) {
         config.method = document.getElementById('ssMethod').value;
         config.password = document.getElementById('ssPassword').value.trim();
         var plugin = document.getElementById('ssPlugin').value;
-        if (plugin) {
+        if (plugin && binType === 'sslocal') {
             config.plugin = plugin;
-            config.plugin_opts = document.getElementById('ssPluginOptsInput').value.trim();
+            var mode = document.getElementById('ssPluginMode').value;
+            var host = document.getElementById('ssPluginHost').value.trim();
+            config.plugin_opts = 'obfs=' + mode + (host ? ';obfs-host=' + host : '');
         }
     } else if (protocol === 'trojan') {
         config.password = document.getElementById('trojanPassword').value.trim();
@@ -1003,8 +1077,6 @@ function updateNode(nodeId) {
         config.allowInsecure = document.getElementById('nodeAllowInsecure').value === '1';
         config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
     }
-
-    var binType = document.getElementById('nodeBinType').value;
 
     // 立即关闭弹窗
     closeEditModal();
@@ -1069,6 +1141,7 @@ function addNode() {
     var protocol = document.getElementById('nodeProtocol').value;
     var address = document.getElementById('nodeAddr').value.trim();
     var port = parseInt(document.getElementById('nodePort').value) || 0;
+    var binType = document.getElementById('nodeBinType').value;
 
     if (!name || !address || !port) {
         addLog('error', '[node] name, address and port required');
@@ -1091,9 +1164,11 @@ function addNode() {
         config.method = document.getElementById('ssMethod').value;
         config.password = document.getElementById('ssPassword').value.trim();
         var plugin = document.getElementById('ssPlugin').value;
-        if (plugin) {
+        if (plugin && binType === 'sslocal') {
             config.plugin = plugin;
-            config.plugin_opts = document.getElementById('ssPluginOptsInput').value.trim();
+            var mode = document.getElementById('ssPluginMode').value;
+            var host = document.getElementById('ssPluginHost').value.trim();
+            config.plugin_opts = 'obfs=' + mode + (host ? ';obfs-host=' + host : '');
         }
     } else if (protocol === 'trojan') {
         config.password = document.getElementById('trojanPassword').value.trim();
@@ -1132,8 +1207,6 @@ function addNode() {
         config.allowInsecure = document.getElementById('nodeAllowInsecure').value === '1';
         config.fingerprint = document.getElementById('nodeFingerprint').value.trim();
     }
-
-    var binType = document.getElementById('nodeBinType').value;
 
     // 立即关闭弹窗
     document.getElementById('addNodeModal').classList.remove('show');

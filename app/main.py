@@ -5,7 +5,7 @@ from . import db
 from . import bin_manager
 from . import upgrade
 from . import subscription
-from . import checker
+from .subscription import VALID_BIN_TYPES
 from .logger import web_logger
 import json
 import hashlib
@@ -409,6 +409,20 @@ def api_add_node():
     if not name or not protocol or not address or not port:
         return jsonify({'success': False, 'message': 'missing required fields'})
 
+    # 验证 protocol 和 bin_type 的匹配
+    valid_bins = VALID_BIN_TYPES.get(protocol)
+    if valid_bins and bin_type not in valid_bins:
+        return jsonify({'success': False, 'message': f'invalid bin_type "{bin_type}" for protocol "{protocol}", allowed: {", ".join(valid_bins)}'})
+
+    # SS 协议且 bin=xray 时，不能有插件
+    if protocol == 'ss' and bin_type == 'xray':
+        try:
+            config = json.loads(config_json)
+            if config.get('plugin'):
+                return jsonify({'success': False, 'message': 'xray does not support SS with plugin, use sslocal instead'})
+        except json.JSONDecodeError:
+            pass
+
     node_id = db.add_custom_node(name, protocol, address, port, config_json, bin_type)
     return jsonify({'success': True, 'id': node_id})
 
@@ -428,6 +442,20 @@ def api_update_node(node_id):
     if not name or not protocol or not address or not port:
         return jsonify({'success': False, 'message': 'missing required fields'})
 
+    # 验证 protocol 和 bin_type 的匹配
+    valid_bins = VALID_BIN_TYPES.get(protocol)
+    if valid_bins and bin_type not in valid_bins:
+        return jsonify({'success': False, 'message': f'invalid bin_type "{bin_type}" for protocol "{protocol}", allowed: {", ".join(valid_bins)}'})
+
+    # SS 协议且 bin=xray 时，不能有插件
+    if protocol == 'ss' and bin_type == 'xray':
+        try:
+            config = json.loads(config_json)
+            if config.get('plugin'):
+                return jsonify({'success': False, 'message': 'xray does not support SS with plugin, use sslocal instead'})
+        except json.JSONDecodeError:
+            pass
+
     db.update_node(node_id, name, protocol, address, port, config_json, bin_type)
     return jsonify({'success': True})
 
@@ -443,17 +471,8 @@ def api_delete_node(node_id):
 @app.route('/api/nodes/check', methods=['POST'])
 @auth_required
 def api_check_nodes():
-    """检测节点延迟"""
-    data = request.json
-    node_ids = data.get('node_ids', [])
-    check_all = data.get('all', False)
-
-    results = checker.check_nodes(node_ids=node_ids, check_all=check_all)
-
-    if not results:
-        return jsonify({'success': False, 'message': 'no nodes to check'})
-
-    return jsonify({'success': True, 'results': results})
+    """检测节点延迟 - 待重写"""
+    return jsonify({'success': False, 'message': 'checker is being rewritten'}), 501
 
 
 # ========== 日志 API ==========

@@ -4,7 +4,7 @@ import json
 def generate_xray_config(node, local_port):
     """生成 Xray 配置
 
-    支持协议: vmess, vless, trojan
+    支持协议: vmess, vless, trojan, ss（无插件）
     """
     protocol = node['protocol']
     address = node['address']
@@ -38,6 +38,8 @@ def _build_outbound(protocol, address, port, cfg):
         return _build_vless(address, port, cfg)
     elif protocol == 'trojan':
         return _build_trojan(address, port, cfg)
+    elif protocol == 'ss':
+        return _build_shadowsocks(address, port, cfg)
     else:
         raise ValueError(f'xray does not support protocol: {protocol}')
 
@@ -101,6 +103,26 @@ def _build_trojan(address, port, cfg):
             "servers": [{
                 "address": address,
                 "port": port,
+                "password": cfg.get('password', '')
+            }]
+        },
+        "streamSettings": stream_settings
+    }
+
+    return outbound
+
+
+def _build_shadowsocks(address, port, cfg):
+    """构建 Shadowsocks 出站（不支持插件）"""
+    stream_settings = _build_stream_settings(cfg)
+
+    outbound = {
+        "protocol": "shadowsocks",
+        "settings": {
+            "servers": [{
+                "address": address,
+                "port": port,
+                "method": cfg.get('method', 'aes-256-gcm'),
                 "password": cfg.get('password', '')
             }]
         },
