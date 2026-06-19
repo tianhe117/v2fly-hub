@@ -3,6 +3,20 @@ import base64
 import json
 import yaml
 
+# 协议→二进制映射
+BIN_TYPE_MAP = {
+    'vmess': 'xray',
+    'vless': 'xray',
+    'trojan': 'xray',
+    'ss': 'xray',
+    'ssr': 'xray',
+    'hysteria': 'sing-box',
+    'hysteria2': 'sing-box',
+    'hy2': 'sing-box',
+    'tuic': 'sing-box',
+    'anytls': 'xray',
+}
+
 
 def fetch_subscription(url):
     """从 URL 获取订阅内容"""
@@ -156,7 +170,8 @@ def parse_clash_node(proxy):
             'protocol': 'ss',
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get('ss', 'xray')
         }
 
     elif node_type == 'ssr':
@@ -173,7 +188,8 @@ def parse_clash_node(proxy):
             'protocol': 'ssr',
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get('ssr', 'xray')
         }
 
     elif node_type == 'vmess':
@@ -213,7 +229,8 @@ def parse_clash_node(proxy):
             'protocol': 'vmess',
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get('vmess', 'xray')
         }
 
     elif node_type == 'vless':
@@ -253,7 +270,8 @@ def parse_clash_node(proxy):
             'protocol': 'vless',
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get('vless', 'xray')
         }
 
     elif node_type == 'trojan':
@@ -284,7 +302,8 @@ def parse_clash_node(proxy):
             'protocol': 'trojan',
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get('trojan', 'xray')
         }
 
     elif node_type in ('hysteria', 'hysteria2', 'hy2'):
@@ -307,7 +326,8 @@ def parse_clash_node(proxy):
             'protocol': node_type,
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get(node_type, 'sing-box')
         }
 
     elif node_type == 'tuic':
@@ -325,7 +345,8 @@ def parse_clash_node(proxy):
             'protocol': 'tuic',
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get('tuic', 'sing-box')
         }
 
     elif node_type == 'anytls':
@@ -339,7 +360,8 @@ def parse_clash_node(proxy):
             'protocol': 'anytls',
             'address': server,
             'port': port,
-            'config_json': json.dumps(cfg)
+            'config_json': json.dumps(cfg),
+            'bin_type': BIN_TYPE_MAP.get('anytls', 'xray')
         }
 
     # 未知类型，跳过
@@ -375,7 +397,8 @@ def decode_vmess(vmess_url):
                 'host': config.get('host', ''),
                 'path': config.get('path', ''),
                 'tls': config.get('tls', '')
-            })
+            }),
+            'bin_type': 'xray'
         }
     except Exception:
         return None
@@ -455,7 +478,8 @@ def decode_ss(ss_url):
             'protocol': 'ss',
             'address': address,
             'port': port,
-            'config_json': json.dumps(config)
+            'config_json': json.dumps(config),
+            'bin_type': 'xray'
         }
     except Exception:
         return None
