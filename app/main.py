@@ -371,6 +371,214 @@ def refresh_subscription(sub_id):
     return {'success': True, 'count': len(nodes)}
 
 
+# ========== 入站 API ==========
+
+@app.route('/api/inbounds', methods=['GET'])
+@auth_required
+def api_get_inbounds():
+    """获取所有入站"""
+    inbounds = db.get_all_inbounds()
+    return jsonify(inbounds)
+
+
+@app.route('/api/inbounds', methods=['POST'])
+@auth_required
+def api_create_inbound():
+    """创建入站"""
+    data = request.get_json()
+    if not data or not data.get('name') or not data.get('protocol') or not data.get('port'):
+        return jsonify({'success': False, 'message': 'name, protocol, port required'}), 400
+
+    name = data['name'].strip()
+    protocol = data['protocol'].strip()
+    listen_addr = data.get('listen_addr', '0.0.0.0').strip() or '0.0.0.0'
+    port = int(data['port'])
+    params_json = data.get('params_json', '{}')
+
+    if protocol not in ('http', 'socks', 'ss', 'vmess'):
+        return jsonify({'success': False, 'message': 'invalid protocol'}), 400
+
+    if port < 1 or port > 65535:
+        return jsonify({'success': False, 'message': 'port out of range'}), 400
+
+    if not isinstance(params_json, str):
+        params_json = json.dumps(params_json)
+
+    inbound_id = db.create_inbound(name, protocol, listen_addr, port, params_json)
+    return jsonify({'success': True, 'id': inbound_id})
+
+
+@app.route('/api/inbounds/<int:inbound_id>', methods=['PUT'])
+@auth_required
+def api_update_inbound(inbound_id):
+    """更新入站"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'no data'}), 400
+
+    existing = db.get_inbound(inbound_id)
+    if not existing:
+        return jsonify({'success': False, 'message': 'inbound not found'}), 404
+
+    name = data.get('name', existing['name']).strip()
+    protocol = data.get('protocol', existing['protocol']).strip()
+    listen_addr = data.get('listen_addr', existing['listen_addr']).strip() or '0.0.0.0'
+    port = int(data.get('port', existing['port']))
+    params_json = data.get('params_json', existing['params_json'])
+
+    if protocol not in ('http', 'socks', 'ss', 'vmess'):
+        return jsonify({'success': False, 'message': 'invalid protocol'}), 400
+
+    if not isinstance(params_json, str):
+        params_json = json.dumps(params_json)
+
+    db.update_inbound(inbound_id, name, protocol, listen_addr, port, params_json)
+    return jsonify({'success': True})
+
+
+@app.route('/api/inbounds/<int:inbound_id>', methods=['DELETE'])
+@auth_required
+def api_delete_inbound(inbound_id):
+    """删除入站"""
+    db.delete_inbound(inbound_id)
+    return jsonify({'success': True})
+
+
+# ========== 出站 API ==========
+
+@app.route('/api/outbounds', methods=['GET'])
+@auth_required
+def api_get_outbounds():
+    """获取所有出站（含节点池信息）"""
+    outbounds = db.get_all_outbounds()
+    for ob in outbounds:
+        if ob['type'] == 'auto':
+            pool = db.get_outbound_nodes(ob['id'])
+            ob['pool'] = pool
+        elif ob['type'] == 'single':
+            config = json.loads(ob['config_json'])
+            node_id = config.get('node_id')
+            if node_id:
+                conn = db.get_db()
+                node = conn.execute('SELECT * FROM nodes WHERE id = ?', (node_id,)).fetchone()
+                conn.close()
+                ob['node'] = dict(node) if node else None
+    return jsonify(outbounds)
+
+
+@app.route('/api/outbounds', methods=['POST'])
+@auth_required
+def api_create_outbound():
+    """创建出站"""
+    data = request.get_json()
+    if not data or not data.get('name') or not data.get('type'):
+        return jsonify({'success': False, 'message': 'name and type required'}), 400
+
+    name = data['name'].strip()
+    out_type = data['type'].strip()
+
+    if out_type not in ('single', 'auto'):
+        return jsonify({'success': False, 'message': 'type must be single or auto'}), 400
+
+    config = {}
+    if out_type == 'single':
+        node_id = data.get('node_id')
+        if not node_id:
+            return jsonify({'success': False, 'message': 'node_id required for single type'}), 400
+        config['node_id'] = int(node_id)
+    elif out_type == 'auto':
+        config['check_interval'] = int(db.get_setting('check_interval_normal') or 240)
+        config['test_url'] = db.get_setting('test_url') or 'http://www.gstatic.com/generate_204'
+
+    outbound_id = db.create_outbound(name, out_type, json.dumps(config))
+    return jsonify({'success': True, 'id': outbound_id})
+
+
+@app.route('/api/outbounds/<int:outbound_id>', methods=['PUT'])
+@auth_required
+def api_update_outbound(outbound_id):
+    """更新出站"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'no data'}), 400
+
+    existing = db.get_outbound(outbound_id)
+    if not existing:
+        return jsonify({'success': False, 'message': 'outbound not found'}), 404
+
+    name = data.get('name', existing['name']).strip()
+    out_type = data.get('type', existing['type']).strip()
+
+    if out_type not in ('single', 'auto'):
+        return jsonify({'success': False, 'message': 'type must be single or auto'}), 400
+
+    config = {}
+    if out_type == 'single':
+        node_id = data.get('node_id')
+        if not node_id:
+            return jsonify({'success': False, 'message': 'node_id required for single type'}), 400
+        config['node_id'] = int(node_id)
+    elif out_type == 'auto':
+        config['check_interval'] = int(db.get_setting('check_interval_normal') or 240)
+        config['test_url'] = db.get_setting('test_url') or 'http://www.gstatic.com/generate_204'
+
+    db.update_outbound(outbound_id, name, out_type, json.dumps(config))
+    return jsonify({'success': True})
+
+
+@app.route('/api/outbounds/<int:outbound_id>', methods=['DELETE'])
+@auth_required
+def api_delete_outbound(outbound_id):
+    """删除出站"""
+    db.delete_outbound(outbound_id)
+    return jsonify({'success': True})
+
+
+@app.route('/api/outbounds/<int:outbound_id>/nodes', methods=['GET'])
+@auth_required
+def api_get_outbound_nodes(outbound_id):
+    """获取出站节点池"""
+    pool = db.get_outbound_nodes(outbound_id)
+    return jsonify(pool)
+
+
+@app.route('/api/outbounds/<int:outbound_id>/nodes', methods=['POST'])
+@auth_required
+def api_add_outbound_node(outbound_id):
+    """向出站节点池添加节点"""
+    data = request.get_json()
+    if not data or not data.get('node_id'):
+        return jsonify({'success': False, 'message': 'node_id required'}), 400
+
+    node_id = int(data['node_id'])
+    # 检查是否已在池中
+    pool = db.get_outbound_nodes(outbound_id)
+    if any(n['id'] == node_id for n in pool):
+        return jsonify({'success': False, 'message': 'node already in pool'})
+    max_priority = max([n['priority'] for n in pool], default=0)
+    db.add_outbound_node(outbound_id, node_id, max_priority + 1)
+    return jsonify({'success': True})
+
+
+@app.route('/api/outbounds/nodes/<int:pool_id>', methods=['DELETE'])
+@auth_required
+def api_remove_outbound_node(pool_id):
+    """从出站节点池移除节点"""
+    db.remove_outbound_node(pool_id)
+    return jsonify({'success': True})
+
+
+@app.route('/api/outbounds/<int:outbound_id>/nodes/reorder', methods=['POST'])
+@auth_required
+def api_reorder_outbound_nodes(outbound_id):
+    """重新排序出站节点池"""
+    data = request.get_json()
+    if not data or not data.get('node_ids'):
+        return jsonify({'success': False, 'message': 'node_ids required'}), 400
+    db.reorder_outbound_nodes(outbound_id, data['node_ids'])
+    return jsonify({'success': True})
+
+
 # ========== 节点 API ==========
 
 @app.route('/api/nodes', methods=['GET'])

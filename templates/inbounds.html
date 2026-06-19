@@ -1,89 +1,356 @@
 {% extends "base.html" %}
 
 {% block navbar_actions %}
-<button class="btn btn-sm" onclick="document.getElementById('addModal').classList.add('show')">+ add inbound</button>
+<button class="btn btn-sm" onclick="openAddModal()">+ add inbound</button>
 {% endblock %}
 
 {% block content %}
-<table>
-    <thead><tr><th>name</th><th>protocol</th><th>listen</th><th>params</th><th>used by</th><th></th></tr></thead>
-    <tbody>
-        <tr>
-            <td><strong>ss-forward</strong></td>
-            <td><span class="tag">ss</span></td>
-            <td>0.0.0.0:666</td>
-            <td>aes-256-gcm</td>
-            <td>ss-forward, vmess-forward</td>
-            <td><button class="btn btn-sm">edit</button> <button class="btn btn-danger btn-sm">del</button></td>
-        </tr>
-        <tr>
-            <td><strong>vmess-in</strong></td>
-            <td><span class="tag">vmess</span></td>
-            <td>127.0.0.1:24811</td>
-            <td>ws /49c866/ alterId:64</td>
-            <td>vmess-forward</td>
-            <td><button class="btn btn-sm">edit</button> <button class="btn btn-danger btn-sm">del</button></td>
-        </tr>
-        <tr>
-            <td><strong>ss-home</strong></td>
-            <td><span class="tag">ss</span></td>
-            <td>0.0.0.0:704</td>
-            <td>aes-256-gcm</td>
-            <td>ss-home</td>
-            <td><button class="btn btn-sm">edit</button> <button class="btn btn-danger btn-sm">del</button></td>
-        </tr>
-    </tbody>
-</table>
+<div id="inboundList">
+    <div style="text-align:center;padding:40px;color:#888;">loading...</div>
+</div>
 {% endblock %}
 
-{% block statusbar_right %}3 inbounds{% endblock %}
+{% block statusbar_right %}<span id="statusInfo">0 inbounds</span>{% endblock %}
 
 {% block modals %}
-<div class="modal-overlay" id="addModal">
-    <div class="modal">
-        <div class="modal-title">add inbound</div>
-        <div class="field"><label>name</label><input class="input" placeholder="ss-in"></div>
-        <div class="field"><label>protocol</label>
-            <select id="protoSelect" onchange="toggleFields()">
-                <option value="ss">shadowsocks</option>
-                <option value="vmess">vmess</option>
-                <option value="http">http</option>
-                <option value="socks">socks</option>
-            </select>
-        </div>
-        <div class="field"><label>listen address</label><input class="input" value="0.0.0.0"></div>
-        <div class="field"><label>port</label><input class="input" type="number" placeholder="1080"></div>
-        <div id="ssFields">
-            <div class="field"><label>method</label>
-                <select><option>aes-256-gcm</option><option>aes-128-gcm</option><option>chacha20-poly1305</option></select>
+<!-- add/edit inbound -->
+<div class="modal-overlay" id="inboundModal">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-title" id="modalTitle">add inbound</div>
+        <div class="field"><label>name</label><input class="input" id="ibName"></div>
+        <div class="field-row">
+            <div class="field">
+                <label>protocol</label>
+                <select class="input" id="ibProtocol" onchange="toggleProtocolFields()">
+                    <option value="http">HTTP</option>
+                    <option value="socks">SOCKS</option>
+                    <option value="ss">Shadowsocks</option>
+                    <option value="vmess">VMess</option>
+                </select>
             </div>
-            <div class="field"><label>password</label><input class="input"></div>
+            <div class="field">
+                <label>port</label>
+                <input class="input" id="ibPort" type="number" placeholder="1080">
+            </div>
         </div>
+        <div class="field"><label>listen address</label><input class="input" id="ibListenAddr" value="0.0.0.0" placeholder="0.0.0.0"></div>
+
+        <!-- HTTP/SOCKS fields -->
+        <div id="proxyFields">
+            <div class="field"><label>username (optional)</label><input class="input" id="ibUsername" placeholder="leave empty for no auth"></div>
+            <div class="field"><label>password (optional)</label><input class="input" id="ibPassword" placeholder="leave empty for no auth"></div>
+        </div>
+
+        <!-- SS fields -->
+        <div id="ssFields" style="display:none;">
+            <div class="field">
+                <label>method</label>
+                <select class="input" id="ibSsMethod">
+                    <option value="aes-256-gcm">aes-256-gcm</option>
+                    <option value="aes-128-gcm">aes-128-gcm</option>
+                    <option value="chacha20-ietf-poly1305">chacha20-ietf-poly1305</option>
+                </select>
+            </div>
+            <div class="field"><label>password</label><input class="input" id="ibSsPassword" placeholder="password"></div>
+        </div>
+
+        <!-- VMess fields -->
         <div id="vmessFields" style="display:none;">
-            <div class="field"><label>uuid</label><input class="input" placeholder="auto-generated if empty"></div>
-            <div class="field"><label>alterId</label><input class="input" value="64"></div>
-            <div class="field"><label>transport</label>
-                <select><option value="tcp">tcp</option><option value="ws" selected>websocket</option></select>
+            <div class="field"><label>uuid</label><input class="input" id="ibVmessUuid" placeholder="auto-generated if empty"></div>
+            <div class="field"><label>alterId</label><input class="input" id="ibVmessAid" type="number" value="0"></div>
+            <div class="field">
+                <label>transport</label>
+                <select class="input" id="ibVmessNetwork" onchange="toggleVmessTransport()">
+                    <option value="tcp">tcp</option>
+                    <option value="ws">websocket</option>
+                    <option value="h2">h2</option>
+                    <option value="grpc">grpc</option>
+                </select>
             </div>
-            <div class="field"><label>ws path</label><input class="input" placeholder="/path/"></div>
+            <div id="vmessWsFields" style="display:none;">
+                <div class="field"><label>ws host</label><input class="input" id="ibVmessWsHost" placeholder="example.com (optional)"></div>
+                <div class="field"><label>ws path</label><input class="input" id="ibVmessWsPath" placeholder="/path/"></div>
+            </div>
+            <div id="vmessH2Fields" style="display:none;">
+                <div class="field"><label>h2 host</label><input class="input" id="ibVmessH2Host" placeholder="example.com"></div>
+                <div class="field"><label>h2 path</label><input class="input" id="ibVmessH2Path" placeholder="/path/"></div>
+            </div>
+            <div id="vmessGrpcFields" style="display:none;">
+                <div class="field"><label>serviceName</label><input class="input" id="ibVmessGrpcService" placeholder="grpc-service-name"></div>
+            </div>
         </div>
-        <div id="proxyFields" style="display:none;">
-            <div class="field"><label>username (optional)</label><input class="input"></div>
-            <div class="field"><label>password (optional)</label><input class="input"></div>
-        </div>
+
         <div class="modal-actions">
-            <button class="btn" onclick="this.closest('.modal-overlay').classList.remove('show')">cancel</button>
-            <button class="btn btn-sm">create</button>
+            <button class="btn" onclick="closeModal()">cancel</button>
+            <button class="btn btn-sm" id="modalSubmitBtn" onclick="submitInbound()">create</button>
+        </div>
+    </div>
+</div>
+
+<!-- confirm delete -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <div class="modal-title">confirm delete</div>
+        <div id="deleteMessage">Are you sure?</div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('deleteModal').classList.remove('show')">cancel</button>
+            <button class="btn btn-danger btn-sm" id="deleteConfirmBtn">delete</button>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-function toggleFields() {
-    var v = document.getElementById('protoSelect').value;
-    document.getElementById('ssFields').style.display = v === 'ss' ? '' : 'none';
-    document.getElementById('vmessFields').style.display = v === 'vmess' ? '' : 'none';
-    document.getElementById('proxyFields').style.display = (v === 'http' || v === 'socks') ? '' : 'none';
+var editingId = null;
+
+function loadInbounds() {
+    fetch('/api/inbounds')
+        .then(r => r.json())
+        .then(data => {
+            renderInbounds(data);
+            document.getElementById('statusInfo').textContent = data.length + ' inbounds';
+        })
+        .catch(err => {
+            document.getElementById('inboundList').innerHTML = '<div style="text-align:center;padding:40px;color:#e53935;">load failed</div>';
+        });
 }
+
+function renderInbounds(list) {
+    var container = document.getElementById('inboundList');
+    if (list.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#888;">no inbounds yet</div>';
+        return;
+    }
+
+    var html = '<table><thead><tr>';
+    html += '<th>name</th><th>protocol</th><th>listen</th><th>params</th><th></th>';
+    html += '</tr></thead><tbody>';
+
+    list.forEach(function(ib) {
+        html += '<tr>';
+        html += '<td><strong>' + escapeHtml(ib.name) + '</strong></td>';
+        html += '<td><span class="tag">' + ib.protocol + '</span></td>';
+        html += '<td>' + escapeHtml(ib.listen_addr) + ':' + ib.port + '</td>';
+        html += '<td style="color:#666;">' + formatParams(ib) + '</td>';
+        html += '<td>';
+        html += '<button class="btn btn-sm" onclick="editInbound(' + ib.id + ')">edit</button> ';
+        html += '<button class="btn btn-danger btn-sm" onclick="deleteInbound(' + ib.id + ', \'' + escapeHtml(ib.name).replace(/'/g, "\\'") + '\')">del</button>';
+        html += '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function formatParams(ib) {
+    var params = {};
+    try { params = JSON.parse(ib.params_json || '{}'); } catch(e) {}
+
+    if (ib.protocol === 'http' || ib.protocol === 'socks') {
+        if (params.username) return 'user: ' + params.username;
+        return 'no auth';
+    }
+    if (ib.protocol === 'ss') {
+        return params.method || 'aes-256-gcm';
+    }
+    if (ib.protocol === 'vmess') {
+        var parts = [];
+        if (params.id) parts.push('uuid: ' + params.id.substring(0, 8) + '...');
+        parts.push('aid: ' + (params.aid || 0));
+        if (params.network && params.network !== 'tcp') {
+            var netInfo = params.network;
+            if (params.network === 'ws' && params.ws_path) netInfo += ' ' + params.ws_path;
+            if (params.network === 'h2' && params.h2_path) netInfo += ' ' + params.h2_path;
+            if (params.network === 'grpc' && params.grpc_service_name) netInfo += ' ' + params.grpc_service_name;
+            parts.push(netInfo);
+        }
+        return parts.join(', ');
+    }
+    return '';
+}
+
+function openAddModal() {
+    editingId = null;
+    document.getElementById('modalTitle').textContent = 'add inbound';
+    document.getElementById('modalSubmitBtn').textContent = 'create';
+    document.getElementById('ibName').value = '';
+    document.getElementById('ibProtocol').value = 'http';
+    document.getElementById('ibPort').value = '';
+    document.getElementById('ibListenAddr').value = '0.0.0.0';
+    document.getElementById('ibUsername').value = '';
+    document.getElementById('ibPassword').value = '';
+    document.getElementById('ibSsMethod').value = 'aes-256-gcm';
+    document.getElementById('ibSsPassword').value = '';
+    document.getElementById('ibVmessUuid').value = '';
+    document.getElementById('ibVmessAid').value = '0';
+    document.getElementById('ibVmessNetwork').value = 'tcp';
+    document.getElementById('ibVmessWsHost').value = '';
+    document.getElementById('ibVmessWsPath').value = '';
+    document.getElementById('ibVmessH2Host').value = '';
+    document.getElementById('ibVmessH2Path').value = '';
+    document.getElementById('ibVmessGrpcService').value = '';
+    toggleProtocolFields();
+    document.getElementById('inboundModal').classList.add('show');
+}
+
+function editInbound(id) {
+    fetch('/api/inbounds')
+        .then(r => r.json())
+        .then(list => {
+            var ib = list.find(function(x) { return x.id === id; });
+            if (!ib) return;
+
+            var params = {};
+            try { params = JSON.parse(ib.params_json || '{}'); } catch(e) {}
+
+            editingId = id;
+            document.getElementById('modalTitle').textContent = 'edit inbound';
+            document.getElementById('modalSubmitBtn').textContent = 'update';
+            document.getElementById('ibName').value = ib.name;
+            document.getElementById('ibProtocol').value = ib.protocol;
+            document.getElementById('ibPort').value = ib.port;
+            document.getElementById('ibListenAddr').value = ib.listen_addr || '0.0.0.0';
+
+            // protocol-specific
+            if (ib.protocol === 'http' || ib.protocol === 'socks') {
+                document.getElementById('ibUsername').value = params.username || '';
+                document.getElementById('ibPassword').value = params.password || '';
+            } else if (ib.protocol === 'ss') {
+                document.getElementById('ibSsMethod').value = params.method || 'aes-256-gcm';
+                document.getElementById('ibSsPassword').value = params.password || '';
+            } else if (ib.protocol === 'vmess') {
+                document.getElementById('ibVmessUuid').value = params.id || '';
+                document.getElementById('ibVmessAid').value = params.aid || '0';
+                document.getElementById('ibVmessNetwork').value = params.network || 'tcp';
+                document.getElementById('ibVmessWsHost').value = params.ws_host || '';
+                document.getElementById('ibVmessWsPath').value = params.ws_path || '';
+                document.getElementById('ibVmessH2Host').value = params.h2_host || '';
+                document.getElementById('ibVmessH2Path').value = params.h2_path || '';
+                document.getElementById('ibVmessGrpcService').value = params.grpc_service_name || '';
+            }
+
+            toggleProtocolFields();
+            toggleVmessTransport();
+            document.getElementById('inboundModal').classList.add('show');
+        });
+}
+
+function closeModal() {
+    document.getElementById('inboundModal').classList.remove('show');
+    editingId = null;
+}
+
+function toggleProtocolFields() {
+    var proto = document.getElementById('ibProtocol').value;
+    document.getElementById('proxyFields').style.display = (proto === 'http' || proto === 'socks') ? 'block' : 'none';
+    document.getElementById('ssFields').style.display = proto === 'ss' ? 'block' : 'none';
+    document.getElementById('vmessFields').style.display = proto === 'vmess' ? 'block' : 'none';
+    toggleVmessTransport();
+}
+
+function toggleVmessTransport() {
+    var net = document.getElementById('ibVmessNetwork').value;
+    document.getElementById('vmessWsFields').style.display = net === 'ws' ? 'block' : 'none';
+    document.getElementById('vmessH2Fields').style.display = net === 'h2' ? 'block' : 'none';
+    document.getElementById('vmessGrpcFields').style.display = net === 'grpc' ? 'block' : 'none';
+}
+
+function submitInbound() {
+    var name = document.getElementById('ibName').value.trim();
+    var protocol = document.getElementById('ibProtocol').value;
+    var port = parseInt(document.getElementById('ibPort').value) || 0;
+    var listenAddr = document.getElementById('ibListenAddr').value.trim() || '0.0.0.0';
+
+    if (!name || !port) {
+        addLog('error', '[inbound] name and port required');
+        return;
+    }
+
+    var params = {};
+    if (protocol === 'http' || protocol === 'socks') {
+        var user = document.getElementById('ibUsername').value.trim();
+        var pass = document.getElementById('ibPassword').value.trim();
+        if (user) params.username = user;
+        if (pass) params.password = pass;
+    } else if (protocol === 'ss') {
+        params.method = document.getElementById('ibSsMethod').value;
+        params.password = document.getElementById('ibSsPassword').value.trim();
+    } else if (protocol === 'vmess') {
+        params.id = document.getElementById('ibVmessUuid').value.trim();
+        params.aid = parseInt(document.getElementById('ibVmessAid').value) || 0;
+        params.network = document.getElementById('ibVmessNetwork').value;
+        if (params.network === 'ws') {
+            params.ws_host = document.getElementById('ibVmessWsHost').value.trim();
+            params.ws_path = document.getElementById('ibVmessWsPath').value.trim();
+        } else if (params.network === 'h2') {
+            params.h2_host = document.getElementById('ibVmessH2Host').value.trim();
+            params.h2_path = document.getElementById('ibVmessH2Path').value.trim();
+        } else if (params.network === 'grpc') {
+            params.grpc_service_name = document.getElementById('ibVmessGrpcService').value.trim();
+        }
+    }
+
+    var payload = {
+        name: name,
+        protocol: protocol,
+        listen_addr: listenAddr,
+        port: port,
+        params_json: JSON.stringify(params)
+    };
+
+    var url, method;
+    if (editingId) {
+        url = '/api/inbounds/' + editingId;
+        method = 'PUT';
+    } else {
+        url = '/api/inbounds';
+        method = 'POST';
+    }
+
+    closeModal();
+    addLog('info', '[inbound] ' + (editingId ? 'updating' : 'adding') + ' "' + name + '"...');
+
+    fetch(url, {
+        method: method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            addLog('ok', '[inbound] ' + (editingId ? 'updated' : 'added') + ' ' + name);
+            loadInbounds();
+        } else {
+            addLog('error', '[inbound] ' + result.message);
+        }
+    })
+    .catch(err => addLog('error', '[inbound] ' + err));
+}
+
+function deleteInbound(id, name) {
+    document.getElementById('deleteMessage').textContent = 'Delete inbound "' + name + '"?';
+    document.getElementById('deleteConfirmBtn').onclick = function() {
+        document.getElementById('deleteModal').classList.remove('show');
+        fetch('/api/inbounds/' + id, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    addLog('ok', '[inbound] deleted ' + name);
+                    loadInbounds();
+                }
+            })
+            .catch(err => addLog('error', '[inbound] ' + err));
+    };
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadInbounds();
 {% endblock %}

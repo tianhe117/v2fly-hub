@@ -71,6 +71,32 @@ def init_db():
             last_check_at TIMESTAMP
         )
     ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS inbounds (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            protocol TEXT NOT NULL,
+            listen_addr TEXT DEFAULT '0.0.0.0',
+            port INTEGER NOT NULL,
+            params_json TEXT NOT NULL DEFAULT '{}'
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS outbounds (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            config_json TEXT NOT NULL DEFAULT '{}'
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS outbound_nodes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            outbound_id INTEGER NOT NULL,
+            node_id INTEGER NOT NULL,
+            priority INTEGER DEFAULT 0
+        )
+    ''')
     conn.commit()
 
     # 迁移：添加新列（如果不存在）
@@ -325,6 +351,154 @@ def delete_node(node_id):
     """删除节点"""
     conn = get_db()
     conn.execute('DELETE FROM nodes WHERE id = ?', (node_id,))
+    conn.commit()
+    conn.close()
+
+
+# ========== 入站操作 ==========
+
+def get_all_inbounds():
+    """获取所有入站"""
+    conn = get_db()
+    rows = conn.execute('SELECT * FROM inbounds ORDER BY id').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_inbound(inbound_id):
+    """获取单个入站"""
+    conn = get_db()
+    row = conn.execute('SELECT * FROM inbounds WHERE id = ?', (inbound_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def create_inbound(name, protocol, listen_addr, port, params_json):
+    """创建入站"""
+    conn = get_db()
+    cursor = conn.execute(
+        'INSERT INTO inbounds (name, protocol, listen_addr, port, params_json) VALUES (?, ?, ?, ?, ?)',
+        (name, protocol, listen_addr, port, params_json)
+    )
+    inbound_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return inbound_id
+
+
+def update_inbound(inbound_id, name, protocol, listen_addr, port, params_json):
+    """更新入站"""
+    conn = get_db()
+    conn.execute(
+        'UPDATE inbounds SET name = ?, protocol = ?, listen_addr = ?, port = ?, params_json = ? WHERE id = ?',
+        (name, protocol, listen_addr, port, params_json, inbound_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_inbound(inbound_id):
+    """删除入站"""
+    conn = get_db()
+    conn.execute('DELETE FROM inbounds WHERE id = ?', (inbound_id,))
+    conn.commit()
+    conn.close()
+
+
+# ========== 出站操作 ==========
+
+def get_all_outbounds():
+    """获取所有出站"""
+    conn = get_db()
+    rows = conn.execute('SELECT * FROM outbounds ORDER BY id').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_outbound(outbound_id):
+    """获取单个出站"""
+    conn = get_db()
+    row = conn.execute('SELECT * FROM outbounds WHERE id = ?', (outbound_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def create_outbound(name, out_type, config_json):
+    """创建出站"""
+    conn = get_db()
+    cursor = conn.execute(
+        'INSERT INTO outbounds (name, type, config_json) VALUES (?, ?, ?)',
+        (name, out_type, config_json)
+    )
+    outbound_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return outbound_id
+
+
+def update_outbound(outbound_id, name, out_type, config_json):
+    """更新出站"""
+    conn = get_db()
+    conn.execute(
+        'UPDATE outbounds SET name = ?, type = ?, config_json = ? WHERE id = ?',
+        (name, out_type, config_json, outbound_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_outbound(outbound_id):
+    """删除出站（同时删除关联的节点池）"""
+    conn = get_db()
+    conn.execute('DELETE FROM outbound_nodes WHERE outbound_id = ?', (outbound_id,))
+    conn.execute('DELETE FROM outbounds WHERE id = ?', (outbound_id,))
+    conn.commit()
+    conn.close()
+
+
+# ========== 出站节点池操作 ==========
+
+def get_outbound_nodes(outbound_id):
+    """获取出站的节点池（按优先级排序）"""
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT on2.id as pool_id, on2.priority, n.*
+        FROM outbound_nodes on2
+        JOIN nodes n ON on2.node_id = n.id
+        WHERE on2.outbound_id = ?
+        ORDER BY on2.priority
+    ''', (outbound_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_outbound_node(outbound_id, node_id, priority):
+    """向出站节点池添加节点"""
+    conn = get_db()
+    conn.execute(
+        'INSERT INTO outbound_nodes (outbound_id, node_id, priority) VALUES (?, ?, ?)',
+        (outbound_id, node_id, priority)
+    )
+    conn.commit()
+    conn.close()
+
+
+def remove_outbound_node(pool_id):
+    """从出站节点池移除节点"""
+    conn = get_db()
+    conn.execute('DELETE FROM outbound_nodes WHERE id = ?', (pool_id,))
+    conn.commit()
+    conn.close()
+
+
+def reorder_outbound_nodes(outbound_id, node_ids):
+    """重新排序出站节点池（node_ids 按新优先级顺序）"""
+    conn = get_db()
+    for i, node_id in enumerate(node_ids):
+        conn.execute(
+            'UPDATE outbound_nodes SET priority = ? WHERE outbound_id = ? AND node_id = ?',
+            (i + 1, outbound_id, node_id)
+        )
     conn.commit()
     conn.close()
 
