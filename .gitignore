@@ -25,7 +25,7 @@ data/*
 
 # v2fly binary and runtime config
 bin/
-config/*.json
+config/
 
 # OS
 .DS_Store

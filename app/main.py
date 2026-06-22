@@ -19,9 +19,50 @@ app.secret_key = os.urandom(24)
 APP_NAME = 'ProxyHub'
 boot_time = datetime.now().strftime('%H:%M:%S')
 
+# 需要清理的进程名
+BIN_PROCESS_NAMES = ['xray.exe', 'xray', 'sslocal.exe', 'sslocal', 'sing-box.exe', 'sing-box', 'obfs-local.exe', 'obfs-local']
+
+
+def kill_all_bin_processes():
+    """启动时清理所有残留的代理进程"""
+    import subprocess
+    web_logger.add('info', 'system', 'cleaning up existing processes...')
+
+    for proc_name in BIN_PROCESS_NAMES:
+        try:
+            if os.name == 'nt':
+                # Windows: 使用 shell=True 确保命令正确执行
+                cmd = f'taskkill /F /IM {proc_name}'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    web_logger.add('info', 'system', f'killed {proc_name}')
+            else:
+                cmd = f'pkill -f {proc_name}'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    web_logger.add('info', 'system', f'killed {proc_name}')
+        except Exception:
+            pass
+
+    # 清理所有 PID 文件
+    pid_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+    if os.path.exists(pid_dir):
+        for filename in os.listdir(pid_dir):
+            if filename.endswith('.pid'):
+                try:
+                    os.remove(os.path.join(pid_dir, filename))
+                except OSError:
+                    pass
+
+    web_logger.add('info', 'system', 'process cleanup done')
+
 
 def auto_start_services():
     """自动启动设置了 auto-start 的服务"""
+    # 先清理所有残留进程
+    kill_all_bin_processes()
+    time.sleep(1)  # 等待进程完全退出
+
     time.sleep(10)  # 等待 10 秒
     services = db.get_auto_start_services()
     if not services:
